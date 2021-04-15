@@ -48,6 +48,9 @@ class DUTSDataset(Dataset):
         if self.image_transform and self.mask_transform:
             image = self.image_transform(image)
             mask = self.mask_transform(mask)
+        
+        # if image.shape[2] != 3 or mask.shape[2] != 1:
+
 
         return (image, mask, image_name)
 
@@ -64,7 +67,7 @@ def load_data():
                                       ])
 
     image_size = 224
-    train_dataset = DUTSDataset(root_dir='./data/DUTS-TR',
+    train_data= DUTSDataset(root_dir='./data/DUTS-TR',
                                 type='train',
                                 image_transform=transforms.Compose([
                                     transforms.Resize(
@@ -76,10 +79,11 @@ def load_data():
                                 mask_transform=transforms.Compose([
                                     transforms.Resize(
                                         (image_size, image_size)),
+                                    transforms.Grayscale(num_output_channels=1),
                                     transforms.ToTensor(),
                                 ]))
 
-    test_dataset = DUTSDataset(root_dir='./data/DUTS-TE',
+    test_data = DUTSDataset(root_dir='./data/DUTS-TE',
                                type='test',
                                image_transform=transforms.Compose([
                                     transforms.Resize(
@@ -91,11 +95,12 @@ def load_data():
                                ]),
                                mask_transform=transforms.Compose([
                                    transforms.Resize((image_size, image_size)),
+                                   transforms.Grayscale(num_output_channels=1),
                                    transforms.ToTensor(),
                                ]))
 
-    print(train_dataset)
-    print(test_dataset)
+    print(train_data)
+    print(test_data)
 
     # print(test_dataset)
     # print(test_dataset[0][0][:10])
@@ -104,14 +109,40 @@ def load_data():
     #print('mask: ', test_dataset[0][1].shape)
 
     # Visualize
-    #sample = unNormalize(test_dataset[0][0]).numpy()
-    # sample = test_dataset[0][0].numpy()
-    # mask = test_dataset[0][1].numpy()
+
+    # sample = unNormalize(train_data[1][0]).numpy()
+    # #sample = test_dataset[0][0].numpy()
+    # mask = train_data[1][1].numpy()
     # sample = np.transpose(sample, (1, 2, 0))
     # mask = np.transpose(mask, (1, 2, 0))
     # plt.imshow(sample)
     # plt.show()
-    # plt.imshow(mask)
+    # plt.imshow(mask.squeeze())
     # plt.show()
 
-    return train_dataset, test_dataset
+    return train_data, test_data
+
+
+def plot_and_save(pts, name, save_file, ptype, freq=10):
+    plt.figure()
+    plt.title('%s %s per %d iterations'%(ptype, name, freq))
+    plt.plot(pts)
+    plt.xlabel('ith ' + str(freq) + ' iterations')
+    plt.ylabel(name)
+    plt.savefig(save_file + '/%s_%s.png'%(ptype, name))
+
+
+def save_model_info(model, results, params, elapsed_time, save_file):
+    losses, precision, recall, fmeasure, mae = results
+    learning_rate = params['leanring_rate']
+    batch_size = params['batch_size']
+    num_epochs = params['num_epochs']
+
+    f = open(save_file + "/model_info.txt", "a")
+    content = "model: " + save_file + "/model.ckpt\n" + "\nAverage Loss: " + str(np.mean(losses))
+    content += "\nprecision: " + str(precision) + "\nrecall: " + str(recall)
+    content += "\nlr: " + str(learning_rate) + "\nbatch size: " + str(batch_size) + "\nnum_epochs: " + str(num_epochs)
+    content += "\nTraining Time: " + str(elapsed_time)
+    content += "\nArchitecture: " + model.__str__()
+    f.write(content)
+    f.close()
