@@ -10,7 +10,6 @@ import os
 import numpy as np
 import PIL
 
-
 class DUTSDataset(Dataset):
     def __init__(self, root_dir, type, image_transform=None, mask_transform=None):
         self.root_dir = root_dir

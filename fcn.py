@@ -6,7 +6,8 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import models
-from torchvision.models.vgg import VGG
+#from torchvision.models.vgg import VGG
+from vgg import VGG
 
 import matplotlib.pyplot as plt
 
@@ -17,6 +18,7 @@ import argparse
 import PIL
 
 from utils import load_data, plot_and_save, save_model_info
+from positional_embeddings import gaussian_pos_embedding
 
 # Set the device to use
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -25,8 +27,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_epochs = 1
 num_classes = 50
 batch_size = 16
-image_size = 128
+image_size = 224
 image_c = 3
+GAUSSIAN_SIGMA = 90
 
 
 class FCN8s(nn.Module):
@@ -35,6 +38,7 @@ class FCN8s(nn.Module):
         self.n_class = n_class
         self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
+
         self.deconv1 = nn.ConvTranspose2d(
             512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1 = nn.BatchNorm2d(512)
@@ -80,12 +84,33 @@ class FCN8s(nn.Module):
 
         return prob # size=(N, n_class, x.H/1, x.W/1)
 
+'''
+    positional_encoding: bool determines whether to add positional encodings
+    If positional_encoding is True, VGG will be modified at pos_inject_layer
+    and the input image will be augmented to have extra channel
+'''
 class FCN32s(nn.Module):
-    def __init__(self, pretrained_net, n_class):
+    def __init__(self,
+                 n_class, pretrained=True, pretrained_net=None,
+                 positional_encoding=False, pos_embed_type="Random",
+                 pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
         self.n_class = n_class
-        self.pretrained_net = pretrained_net
+        self.positional_encoding = positional_encoding
+        self.pos_embed_type = pos_embed_type
+        
+        # Encoder
+        if pretrained_net is None:
+            pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
+                                    positional_encoding=positional_encoding, 
+                                    pos_inject_layer=pos_inject_layer,
+                                    show_params=False, show_params_values=False)
+            self.pretrained_net = pretrained_net
+        else:
+            self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
+
+        # Decoder
         self.deconv1 = nn.ConvTranspose2d(
             512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1 = nn.BatchNorm2d(512)
@@ -104,6 +129,20 @@ class FCN32s(nn.Module):
         self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
 
     def forward(self, x):
+        # x : [b x 3 x h x w]
+        batch_size = x.shape[0]
+        image_size = x.shape[2]
+        if self.positional_encoding:
+            pos_embed = None  # [img_size x img_size]
+            if self.pos_embed_type == 'Gaussian':
+                pos_embed = torch.from_numpy(gaussian_pos_embedding(image_size, sigma=90))
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'Random':
+                pos_embed = torch.rand((image_size, image_size))  # random embed
+            pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
+            #print('after adding pos embed x.shape: ', x.shape)
+
         output = self.pretrained_net(x)
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
 
@@ -115,8 +154,8 @@ class FCN32s(nn.Module):
         score = self.bn3(self.relu(self.deconv3(score)))
         # size=(N, 64, x.H/2, x.W/2)
         score = self.bn4(self.relu(self.deconv4(score)))
-        score = self.bn5(self.relu(self.deconv5(score))
-                         )  # size=(N, 32, x.H, x.W)
+        score = self.bn5(self.relu(self.deconv5(score)))  # size=(N, 32, x.H, x.W)
+        
         # size=(N, n_class, x.H/1, x.W/1)
         score = self.classifier(score)
 
@@ -141,9 +180,13 @@ cfg = {
     'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
-def make_layers(cfg, batch_norm=False) -> nn.Sequential:
+
+def make_layers(cfg, batch_norm=False, positional_encoding=False) -> nn.Sequential:
     layers = []
-    in_channels = 3
+    if positional_encoding:
+        in_channels = 4
+    else:
+        in_channels = 3
     for v in cfg:
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -157,12 +200,32 @@ def make_layers(cfg, batch_norm=False) -> nn.Sequential:
     return nn.Sequential(*layers)
 
 class VGGNet(VGG):
-    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, show_params=False):
-        super().__init__(make_layers(cfg[model]))
+    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, positional_encoding=False, pos_inject_layer=0, show_params=False, show_params_values=False):
+        super().__init__(make_layers(cfg[model], positional_encoding=positional_encoding))
         self.ranges = ranges[model]
+        
+        model_dict = self.state_dict()
+        #print('model_dict: ', model_dict.keys())
 
         if pretrained:
-            exec("self.load_state_dict(models.%s(pretrained=True).state_dict())" % model)
+            # Load pretrained vgg weights on ImageNet 
+            pretrained_dict = models.vgg16(pretrained=True, progress=True).state_dict()
+            #print('pretrained_dict: ')
+            #print(pretrained_dict.keys())
+
+            # Load pretrained weights but leave the pos_embed weights initialized
+            if positional_encoding:
+                for key, value in pretrained_dict.items():
+                    if key == 'features.%d.weight'%(pos_inject_layer):
+                        print('hi')
+                        model_dict[key][:, 1:, :, :] = value
+                    else:
+                        model_dict[key] = value
+            else: # No modification on VGG, directly load
+                model_dict = pretrained_dict
+            
+            self.load_state_dict(model_dict)
+            #exec("self.load_state_dict(models.%s(pretrained=True, progress=True).state_dict(), strict=False)" % model)
 
         if not requires_grad:
             for param in super().parameters():
@@ -173,11 +236,18 @@ class VGGNet(VGG):
 
         if show_params:
             for name, param in self.named_parameters():
-                print(name, param.size())
+                print(name, param.size(), param.requires_grad)
 
-    def forward(self, x):
+        if show_params_values:
+            named_param = next(self.named_parameters())
+            name, param = named_param
+            print(name, param.data[0, 0, :, :])
+            print('pretrained weights: ', param.data[0, 1, :, :])
+
+    def forward(self, x, positional_encoding=False):
+        # x : [b x 3 x h x w] or [b x 4 x h x w]
         output = {}
-
+        
         # get the output of each maxpooling layer (5 maxpool in VGG net)
         #print('self.features: ', self.features)
         for idx in range(len(self.ranges)):
@@ -396,28 +466,23 @@ if __name__ == "__main__":
     if not os.path.exists(args.store_files):
         os.makedirs(args.store_files)
 
-
+    # Data
     train_data, test_data = load_data()
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True)
 
     n_class, h, w = 1, 224, 224
-
-    # test output size
-    vgg_model = VGGNet(requires_grad=True)
-    # input = torch.autograd.Variable(torch.randn(batch_size, 3, 224, 224))
-    # output = vgg_model(input)
-    # assert output['x5'].size() == torch.Size([batch_size, 512, 7, 7])
-
-    fcn_model = FCN32s(pretrained_net=vgg_model, n_class=n_class)
-    #input = torch.autograd.Variable(torch.randn(batch_size, 3, h, w))
-    input = next(iter(train_data))[0].reshape((1,3,224,224))
+    # Model
+    fcn_model = FCN32s(n_class=n_class, positional_encoding=True)
+    input = torch.autograd.Variable(torch.randn(batch_size, 3, h, w))
+    #input = next(iter(train_data))[0].reshape((1,3,224,224))
     print('input.shape: ', input.shape)
     output = fcn_model(input)
-    assert output.size() == torch.Size([1, n_class, h, w])
+    print('output shape: ', output.shape)
+    assert output.size() == torch.Size([batch_size, n_class, h, w])
     print('Check Pass')
 
-
+    # Train Model
     fcn_model = fcn_model.to(device)
     num_iters_per_print = 5
     num_epochs = num_epochs
@@ -439,7 +504,7 @@ if __name__ == "__main__":
     loss_function = nn.BCELoss()
 
     # Train
-    print(fcn_model)
+    print(fcn_model) # Show model architecture
     validation_loader = torch.utils.data.DataLoader(
         test_data, batch_size=100, shuffle=True)
     sample_validation = next(iter(validation_loader))
@@ -476,7 +541,7 @@ if __name__ == "__main__":
                   "validation", freq=num_iters_per_eval)
 
     # Save model info
-    save_model_info(model, results, params, elapsed_time, args.store_files)
+    save_model_info(fcn_model, results, params, elapsed_time, args.store_files)
 
     # Visualize
     
