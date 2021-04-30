@@ -24,21 +24,37 @@ from positional_embeddings import gaussian_pos_embedding
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 ## Hyperparameters
-num_epochs = 1
-num_classes = 50
-batch_size = 16
-image_size = 224
 image_c = 3
 GAUSSIAN_SIGMA = 90
 
 
+'''
+    positional_encoding: bool determines whether to add positional encodings
+    If positional_encoding is True, VGG will be modified at pos_inject_layer
+    and the input image will be augmented to have extra channel
+'''
 class FCN8s(nn.Module):
-    def __init__(self, pretrained_net, n_class):
+    def __init__(self,
+                 n_class, pretrained=True, pretrained_net=None,
+                 positional_encoding=False, pos_embed_type="Random",
+                 pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
         self.n_class = n_class
-        self.pretrained_net = pretrained_net
+        self.positional_encoding = positional_encoding
+        self.pos_embed_type = pos_embed_type
+
+        # Encoder
+        if pretrained_net is None:
+            pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
+                                    positional_encoding=positional_encoding, 
+                                    pos_inject_layer=pos_inject_layer,
+                                    show_params=False, show_params_values=False)
+            self.pretrained_net = pretrained_net
+        else:
+            self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
 
+        # Decoder
         self.deconv1 = nn.ConvTranspose2d(
             512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn1 = nn.BatchNorm2d(512)
@@ -57,10 +73,28 @@ class FCN8s(nn.Module):
         self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
 
     def forward(self, x):
+        # x : [b x 3 x h x w]
+        batch_size = x.shape[0]
+        image_size = x.shape[2]
+        if self.positional_encoding:
+            pos_embed = None  # [img_size x img_size]
+            if self.pos_embed_type == 'Gaussian':
+                pos_embed = torch.from_numpy(
+                    gaussian_pos_embedding(image_size, sigma=90))
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'Random':
+                pos_embed = torch.rand(
+                    (image_size, image_size))  # random embed
+            pos_embed = torch.unsqueeze(pos_embed.repeat(
+                (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
+            #print('after adding pos embed x.shape: ', x.shape)
+
         output = self.pretrained_net(x)
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
         x4 = output['x4']  # size=(N, 512, x.H/16, x.W/16)
         x3 = output['x3']  # size=(N, 256, x.H/8,  x.W/8)
+        #print('forwar encoder x5.shape: ', x5.shape)
 
         # size=(N, 512, x.H/16, x.W/16)
         score = self.relu(self.deconv1(x5))
@@ -145,6 +179,7 @@ class FCN32s(nn.Module):
 
         output = self.pretrained_net(x)
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
+        #print('forwar encoder x5.shape: ', x5.shape)
 
         # size=(N, 512, x.H/16, x.W/16)
         score = self.bn1(self.relu(self.deconv1(x5)))
@@ -180,6 +215,9 @@ cfg = {
     'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
+'''
+    MVP for intializing encoder to have extra positional channels
+'''
 
 def make_layers(cfg, batch_norm=False, positional_encoding=False) -> nn.Sequential:
     layers = []
@@ -197,6 +235,7 @@ def make_layers(cfg, batch_norm=False, positional_encoding=False) -> nn.Sequenti
             else:
                 layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
+    #print('layers~~~~~~: ', len(layers), layers)
     return nn.Sequential(*layers)
 
 class VGGNet(VGG):
@@ -211,14 +250,16 @@ class VGGNet(VGG):
             # Load pretrained vgg weights on ImageNet 
             pretrained_dict = models.vgg16(pretrained=True, progress=True).state_dict()
             #print('pretrained_dict: ')
-            #print(pretrained_dict.keys())
+            print(pretrained_dict.keys())
 
             # Load pretrained weights but leave the pos_embed weights initialized
             if positional_encoding:
                 for key, value in pretrained_dict.items():
                     if key == 'features.%d.weight'%(pos_inject_layer):
                         print('hi')
-                        model_dict[key][:, 1:, :, :] = value
+                        #print('value.shape: ', value.shape)
+                        #print('value: ', value)
+                        model_dict[key][:, 1:, :, :] = value # [out_channel x in_channel x 3 x 3]
                     else:
                         model_dict[key] = value
             else: # No modification on VGG, directly load
@@ -241,8 +282,8 @@ class VGGNet(VGG):
         if show_params_values:
             named_param = next(self.named_parameters())
             name, param = named_param
-            print(name, param.data[0, 0, :, :])
-            print('pretrained weights: ', param.data[0, 1, :, :])
+            #print(name, param.data[0, 0, :, :])
+            #print('pretrained weights: ', param.data[0, 1, :, :])
 
     def forward(self, x, positional_encoding=False):
         # x : [b x 3 x h x w] or [b x 4 x h x w]
@@ -256,294 +297,3 @@ class VGGNet(VGG):
             output["x%d" % (idx+1)] = x
 
         return output
-
-
-def train(model, optim, loss_function, train_loader, sample_test, params, test_params):
-    # Params
-    batch_size = params["batch_size"]
-    num_epochs = params["num_epochs"]
-    num_iters_per_print = params['num_iters_per_print']
-    num_epoch_per_eval = params['num_epoch_per_eval']
-    save_file = params['save_file']
-
-    # Print some info about train data
-    num_data = len(train_loader) * batch_size
-    num_iters_per_epoch = num_data / batch_size
-    print('Total number of Iterations: ', num_iters_per_epoch * num_epochs)
-    print("num_data: ", num_data, "\nnum_iters_per_epoch: ", num_iters_per_epoch)
-
-    losses = []
-    precisions = []
-    recalls = []
-    maes = []
-    fmeasures = []
-
-    best_mae = 1
-    model.train() # Set model to train mode
-    for e in range(num_epochs):
-        for i, data in enumerate(train_loader, 0):
-            x = data[0].to(device)  # b x C x W x H
-            y = data[1].to(device) # b x 1 x W x H
-
-            # Forward & backward pass
-            model.zero_grad()
-
-            output = model(x)  # b x 1 x W x H
-            loss = loss_function(output, y)
-
-            loss.backward()
-            optim.step()
-
-            # Bookkeeping
-            if i % num_iters_per_print == 0 or i == num_iters_per_epoch-1:
-              print(
-                  "[%d/%d][%d/%d]\tLoss_D: %.4f\t"
-                  % (
-                      e,
-                      num_epochs,
-                      i,
-                      len(train_loader),
-                      loss
-                  )
-              )
-              losses.append(loss.item())
-
-            # Eval on sample testing on the end batch of epoch
-            if (e % num_epoch_per_eval == 0 and i == num_iters_per_epoch - 1) or (e == num_epochs-1 and i == num_iters_per_epoch - 1):
-                print(
-                    "[%d/%d][%d/%d]\tEvaluating..."
-                    % (
-                        e,
-                        num_epochs,
-                        i,
-                        len(train_loader)
-                    )
-                )
-                pr, rc, fm, mae = eval_sample(model, sample_test, test_params)
-                precisions.append(pr)
-                recalls.append(rc)
-                fmeasures.append(fm)
-                maes.append(mae)
-                
-                # Save best model
-                if mae > best_mae and save_file != "":
-                    best_mae = mae
-                    torch.save(model, save_file + "/model.ckpt")
-
-    #wandb.log({'losses': losses, 'class_accs': class_accs, "attr_accs": attr_accs})
-    return losses, precisions, recalls, fmeasures, maes
-
-def eval_sample(model, test_data, params):
-    '''
-    Evaluate SOD model on test data
-    If prob > threshold, then 1
-
-    Output:
-        precision: tp / tp + fp
-        recall: tp / tp + fn
-        f_measure: 
-        MAE: 
-    '''
-    tp = 0
-    fp = 0
-    fn = 0
-    batch_mae = []
-    batch_size = []
-
-    threshold = 0.5
-    belta_sq = 0.3
-
-    model.eval() # set model to eval mode for bn, dropout behave properly
-    with torch.no_grad():
-        x = test_data[0].to(device)  # b x C x W x H
-        y = test_data[1].to(device)  # b x 1 x W x H
-
-        output = model(x).cpu().numpy()  # b x 1 x W x H
-        pred_mask = np.copy(output)
-        y = y.cpu().numpy()
-        pred_mask[output > threshold] = 1
-        pred_mask[output <= threshold] = 0
-
-        tp += np.sum(pred_mask[y == 1] == 1)
-        fp += np.sum(pred_mask[y == 0] == 1)
-        fn += np.sum(pred_mask[y == 1] == 0)
-
-        mae = np.mean(np.abs(pred_mask-y))
-        batch_mae.append(mae)
-        batch_size.append(x.shape[0])
-
-        print(
-            "tp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-            % (
-                tp,
-                fp,
-                fn,
-                mae
-            )
-        )
-
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / \
-        (belta_sq * precision + recall)
-    MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
-        np.sum(batch_size)
-
-    return precision, recall, f_measure, MAE
-
-
-def eval(model, test_loader, params):
-    '''
-    Evaluate SOD model on test data
-    If prob > threshold, then 1
-
-    Output:
-        precision: tp / tp + fp
-        recall: tp / tp + fn
-        f_measure: 
-        MAE: 
-    '''
-    tp = 0
-    fp = 0
-    fn = 0
-    batch_mae = []
-    batch_size = []
-
-    threshold = 0.5
-    belta_sq = 0.3
-    
-    model.eval()
-    with torch.no_grad():
-        for i, data in enumerate(test_loader, 0):
-            x = data[0].to(device)  # b x C x W x H
-            y = data[1].to(device)  # b x 1 x W x H
-
-            output = model(x).cpu().numpy()  # b x 1 x W x H
-            pred_mask = np.copy(output)
-            y = y.cpu().numpy()
-            pred_mask[output > threshold] = 1
-            pred_mask[output <= threshold] = 0
-
-            tp += np.sum(pred_mask[y==1]==1)
-            fp += np.sum(pred_mask[y==0]==1)
-            fn += np.sum(pred_mask[y==1]==0)
-            
-            mae = np.mean(np.abs(pred_mask-y))
-            batch_mae.append(mae)
-            batch_size.append(x.shape[0])
-
-            print(
-                "[%d/%d]\ttp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-                % (
-                    i,
-                    len(test_loader),
-                    tp,
-                    fp,
-                    fn,
-                    mae
-                )
-            )
-    
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / (belta_sq * precision + recall)
-    MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / np.sum(batch_size)
-
-    return precision, recall, f_measure, MAE
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--store_files", type=str, required=True,
-                        help="Where to store the trained model")
-    parser.add_argument("--batch_size", default=16,
-                        type=int, help="How many WordPiece tokens to use")
-    parser.add_argument("--num_epochs", default=1,
-                        type=int, help="How many WordPiece tokens to use")
-
-    args = parser.parse_args()
-
-    if not os.path.exists(args.store_files):
-        os.makedirs(args.store_files)
-
-    # Data
-    train_data, test_data = load_data()
-    train_loader = torch.utils.data.DataLoader(
-        train_data, batch_size=batch_size, shuffle=True)
-
-    n_class, h, w = 1, 224, 224
-    # Model
-    fcn_model = FCN32s(n_class=n_class, positional_encoding=True)
-    input = torch.autograd.Variable(torch.randn(batch_size, 3, h, w))
-    #input = next(iter(train_data))[0].reshape((1,3,224,224))
-    print('input.shape: ', input.shape)
-    output = fcn_model(input)
-    print('output shape: ', output.shape)
-    assert output.size() == torch.Size([batch_size, n_class, h, w])
-    print('Check Pass')
-
-    # Train Model
-    fcn_model = fcn_model.to(device)
-    num_iters_per_print = 5
-    num_epochs = num_epochs
-    num_iters_per_eval = 10
-    save_file = ''
-    params = {
-        "batch_size": args.batch_size,
-        "num_iters_per_print": num_iters_per_print,
-        "num_epoch_per_eval": num_iters_per_eval,
-        "num_epochs": args.num_epochs,
-        "save_file": args.store_files
-    }
-    eval_params = {
-        "belta_sq": 0.3,
-        "threshold": 0.5
-    }
-    learning_rate = 1e-4
-    optim = torch.optim.Adam(fcn_model.parameters(), lr=learning_rate)
-    loss_function = nn.BCELoss()
-
-    # Train
-    print(fcn_model) # Show model architecture
-    validation_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=100, shuffle=True)
-    sample_validation = next(iter(validation_loader))
-    start_time = time.time()
-    losses, precisions, recalls, fmeasures, maes = train(
-        fcn_model, optim, loss_function, train_loader, sample_validation, params, eval_params)
-
-    elapsed_time = time.time() - start_time
-    print('Training Finished in : ', time.strftime(
-        "%H:%M:%S", time.gmtime(elapsed_time)))
-
-    # Evaluate
-    test_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=batch_size, shuffle=True)
-    eval_params = {
-        "belta_sq": 0.3,
-        "threshold": 0.5
-    }
-    pr, rc, fm, mae = eval(fcn_model, test_loader, params)
-
-    results = (np.mean(losses), pr, rc, fm, mae)
-    print(pr, rc, fm, mae)
-
-    # Plot
-    plot_and_save(losses, "loss", args.store_files,
-                  "train", freq=num_iters_per_print)
-    plot_and_save(precisions, "precision", args.store_files,
-                  "validation", freq=num_iters_per_eval)
-    plot_and_save(recalls, "recall", args.store_files,
-                  "validation", freq=num_iters_per_eval)
-    plot_and_save(fmeasures, "f-measure", args.store_files,
-                  "validation", freq=num_iters_per_eval)
-    plot_and_save(maes, "MAE", args.store_files,
-                  "validation", freq=num_iters_per_eval)
-
-    # Save model info
-    save_model_info(fcn_model, results, params, elapsed_time, args.store_files)
-
-    # Visualize
-    
-
-

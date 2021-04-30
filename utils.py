@@ -133,7 +133,7 @@ def plot_and_save(pts, name, save_file, ptype, freq=10):
 
 def save_model_info(model, results, params, elapsed_time, save_file):
     losses, precision, recall, fmeasure, mae = results
-    learning_rate = params['leanring_rate']
+    learning_rate = params['learning_rate']
     batch_size = params['batch_size']
     num_epochs = params['num_epochs']
 
