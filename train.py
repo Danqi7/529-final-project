@@ -69,7 +69,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
             # Bookkeeping
             if i % num_iters_per_print == 0 or i == num_iters_per_epoch-1:
               print(
-                  "[%d/%d][%d/%d]\tLoss_D: %.4f\t"
+                  "[%d/%d][%d/%d]\tLoss: %.4f\t"
                   % (
                       e,
                       num_epochs,
@@ -278,7 +278,8 @@ if __name__ == "__main__":
         "num_iters_per_print": num_iters_per_print,
         "num_epoch_per_eval": num_epoch_per_eval,
         "num_epochs": args.num_epochs,
-        "save_file": args.store_files
+        "save_file": args.store_files,
+        "learning_rate": learning_rate,
     }
     eval_params = {
         "belta_sq": 0.3,
