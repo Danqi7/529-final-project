@@ -258,7 +258,7 @@ if __name__ == "__main__":
     # Data
     train_data, test_data = load_data()
     train_loader = torch.utils.data.DataLoader(
-        train_data, batch_size=batch_size, shuffle=True)
+        train_data, batch_size=batch_size, shuffle=False)
     
     # Model
     if args.residual_level == 8:
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     # Train
     print(fcn_model)  # Show model architecture
     validation_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=100, shuffle=True)
+        test_data, batch_size=100, shuffle=False)
     sample_validation = next(iter(validation_loader))
     start_time = time.time()
     losses, precisions, recalls, fmeasures, maes = train(
@@ -315,7 +315,7 @@ if __name__ == "__main__":
 
     # Evaluate
     test_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=batch_size, shuffle=True)
+        test_data, batch_size=batch_size, shuffle=False)
     eval_params = {
         "belta_sq": 0.3,
         "threshold": 0.5
