@@ -32,6 +32,8 @@ GAUSSIAN_SIGMA = 90
     positional_encoding: bool determines whether to add positional encodings
     If positional_encoding is True, VGG will be modified at pos_inject_layer
     and the input image will be augmented to have extra channel
+
+    FCN8s: residual connection up to w/8, h/8 (3rd layer)
 '''
 class FCN8s(nn.Module):
     def __init__(self,
@@ -87,6 +89,7 @@ class FCN8s(nn.Module):
                     (image_size, image_size))  # random embed
             pos_embed = torch.unsqueeze(pos_embed.repeat(
                 (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            pos_embed = pos_embed.to(device)
             x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
 
