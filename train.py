@@ -205,17 +205,18 @@ def eval(model, test_loader, params):
             batch_mae.append(mae)
             batch_size.append(x.shape[0])
 
-            print(
-                "[%d/%d]\ttp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-                % (
-                    i,
-                    len(test_loader),
-                    tp,
-                    fp,
-                    fn,
-                    mae
+            if i % 100 == 0:
+                print(
+                    "[%d/%d]\ttp:%d\t fp:%d\t fn:%d\t mae:%f\t"
+                    % (
+                        i,
+                        len(test_loader),
+                        tp,
+                        fp,
+                        fn,
+                        mae
+                    )
                 )
-            )
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
