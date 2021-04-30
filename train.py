@@ -53,6 +53,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
     #best_mae = 1
     model.train()  # Set model to train mode
     for e in range(num_epochs):
+        epoch_loss = 0
         for i, data in enumerate(train_loader, 0):
             x = data[0].to(device)  # b x C x W x H
             y = data[1].to(device)  # b x 1 x W x H
@@ -65,6 +66,8 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
 
             loss.backward()
             optim.step()
+
+            epoch_loss += loss
 
             # Bookkeeping
             if i % num_iters_per_print == 0 or i == num_iters_per_epoch-1:
@@ -99,13 +102,8 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
             
             # Clear Cache
             torch.cuda.empty_cache()
+        print('Epoch %d Average Train Loss: %.4f'%(e, epoch_loss/(i+1)))
 
-                # # Save best model
-                # if mae > best_mae and save_file != "":
-                #     best_mae = mae
-                #     torch.save(model, save_file + "/model.pt")
-
-    #wandb.log({'losses': losses, 'class_accs': class_accs, "attr_accs": attr_accs})
     return losses, precisions, recalls, fmeasures, maes
 
 

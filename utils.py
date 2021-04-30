@@ -10,6 +10,18 @@ import os
 import numpy as np
 import PIL
 
+class HKUDataset(Dataset):
+    def __init__(self, root_dir, type, image_transform=None, mask_transform=None):
+        self.root_dir = root_dir
+        self.image_transform = image_transform
+        self.mask_transform = mask_transform
+        self.type = type
+        self.image_dir = os.path.basename(root_dir) + 'imgs'
+        self.mask_dir = os.path.basename(root_dir) + 'gt'
+
+
+
+
 class DUTSDataset(Dataset):
     def __init__(self, root_dir, type, image_transform=None, mask_transform=None):
         self.root_dir = root_dir
