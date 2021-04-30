@@ -273,6 +273,7 @@ if __name__ == "__main__":
     num_epochs = args.num_epochs
     num_epoch_per_eval = 1
     save_file = ''
+    learning_rate = 1e-4
     params = {
         "batch_size": args.batch_size,
         "num_iters_per_print": num_iters_per_print,
@@ -285,7 +286,7 @@ if __name__ == "__main__":
         "belta_sq": 0.3,
         "threshold": 0.5
     }
-    learning_rate = 1e-4
+    
     optim = torch.optim.Adam(fcn_model.parameters(), lr=learning_rate)
     loss_function = nn.BCELoss()
 
