@@ -177,6 +177,7 @@ class FCN32s(nn.Module):
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand((image_size, image_size))  # random embed
             pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            pos_embed = pos_embed.to(device)
             x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
 
