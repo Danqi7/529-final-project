@@ -235,11 +235,13 @@ if __name__ == "__main__":
                         type=int, help="batch size")
     parser.add_argument("--num_epochs", default=1,
                         type=int, help="epochs to run")
+    parser.add_argument("--residual_level", default=8, type=int, help="Up to which level of residual connection, 8 means going back to w/8")
     parser.add_argument("--positional_encoding", default=False, action="store_true",
                         help="Whether to add positional encoding at encoder")
     parser.add_argument("--pos_inject_layer", default=0, type=int,
                         help="Which layer at the encoder to inject the positional encoding")
     parser.add_argument("--pos_embed_type", default="Gaussian", type=str, help="Gaussian|Random|")
+    parser.add_argument("--save_model", default=False, action="store_true", help="Whether to save model checkpoint")
 
     args = parser.parse_args()
 
@@ -255,8 +257,12 @@ if __name__ == "__main__":
         train_data, batch_size=batch_size, shuffle=True)
     
     # Model
-    fcn_model = FCN8s(
-        n_class=n_class, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+    if args.residual_level == 8:
+        fcn_model = FCN8s(
+            n_class=n_class, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+    elif args.residual_level == 32:
+        fcn_model = FCN32s(
+            n_class=n_class, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
     #n_class, h, w = 1, 224, 224
     # input = torch.autograd.Variable(torch.randn(batch_size, 3, h, w))
     # #input = next(iter(train_data))[0].reshape((1,3,224,224))
@@ -317,15 +323,20 @@ if __name__ == "__main__":
           (pr, rc, fm, mae))
 
     # Create model directory
-    dir_name = args.store_files + "pos_encoding%d_injectlayer%d_type%s_encoder%.1f" % (
-        args.positional_encoding, args.pos_inject_layer, args.pos_embed_type, start_time)
+    dir_name = args.store_files + \
+        "residule%d_pos_encoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
+                                                                        args.positional_encoding,
+                                                                        args.pos_inject_layer,
+                                                                        args.pos_embed_type,
+                                                                        start_time)
     os.mkdir(dir_name)
     print('Saving model to dir: ', dir_name)
 
     model_save_name = 'fcn.pt'
     path = dir_name + "/" + model_save_name
     # Save Model
-    torch.save(fcn_model.state_dict(), path)
+    if args.save_model == True:
+        torch.save(fcn_model.state_dict(), path)
 
     # Plot
     plot_and_save(losses, "loss", dir_name,
