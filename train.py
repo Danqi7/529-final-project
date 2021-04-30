@@ -276,7 +276,7 @@ if __name__ == "__main__":
     # Train Model
     fcn_model = fcn_model.to(device)
 
-    num_iters_per_print = 10
+    num_iters_per_print = 50
     num_epochs = args.num_epochs
     num_epoch_per_eval = 1
     save_file = ''
