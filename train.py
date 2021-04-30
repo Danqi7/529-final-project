@@ -96,6 +96,9 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
                 recalls.append(rc)
                 fmeasures.append(fm)
                 maes.append(mae)
+            
+            # Clear Cache
+            torch.cuda.empty_cache()
 
                 # # Save best model
                 # if mae > best_mae and save_file != "":
