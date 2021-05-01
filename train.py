@@ -17,9 +17,11 @@ import numpy as np
 import argparse
 import PIL
 
-from utils import load_data, plot_and_save, save_model_info
+from utils import plot_and_save, save_model_info
+from data_utils import load_data
 from positional_embeddings import gaussian_pos_embedding
 from fcn import FCN32s, FCN8s
+from evaluations import eval, eval_sample
 
 # Set the device to use
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -107,128 +109,6 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
     return losses, precisions, recalls, fmeasures, maes
 
 
-def eval_sample(model, test_data, params):
-    '''
-    Evaluate SOD model on test data
-    If prob > threshold, then 1
-
-    Output:
-        precision: tp / tp + fp
-        recall: tp / tp + fn
-        f_measure: 
-        MAE: 
-    '''
-    tp = 0
-    fp = 0
-    fn = 0
-    batch_mae = []
-    batch_size = []
-
-    threshold = 0.5
-    belta_sq = 0.3
-
-    model.eval()  # set model to eval mode for bn, dropout behave properly
-    with torch.no_grad():
-        x = test_data[0].to(device)  # b x C x W x H
-        y = test_data[1].to(device)  # b x 1 x W x H
-
-        output = model(x).cpu().numpy()  # b x 1 x W x H
-        pred_mask = np.copy(output)
-        y = y.cpu().numpy()
-        pred_mask[output > threshold] = 1
-        pred_mask[output <= threshold] = 0
-
-        tp += np.sum(pred_mask[y == 1] == 1)
-        fp += np.sum(pred_mask[y == 0] == 1)
-        fn += np.sum(pred_mask[y == 1] == 0)
-
-        mae = np.mean(np.abs(pred_mask-y))
-        batch_mae.append(mae)
-        batch_size.append(x.shape[0])
-
-        print(
-            "tp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-            % (
-                tp,
-                fp,
-                fn,
-                mae
-            )
-        )
-
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / \
-        (belta_sq * precision + recall)
-    MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
-        np.sum(batch_size)
-
-    return precision, recall, f_measure, MAE
-
-
-def eval(model, test_loader, params):
-    '''
-    Evaluate SOD model on test data
-    If prob > threshold, then 1
-
-    Output:
-        precision: tp / tp + fp
-        recall: tp / tp + fn
-        f_measure: 
-        MAE: 
-    '''
-    tp = 0
-    fp = 0
-    fn = 0
-    batch_mae = []
-    batch_size = []
-
-    threshold = 0.5
-    belta_sq = 0.3
-
-    model.eval()
-    with torch.no_grad():
-        for i, data in enumerate(test_loader, 0):
-            x = data[0].to(device)  # b x C x W x H
-            y = data[1].to(device)  # b x 1 x W x H
-
-            output = model(x).cpu().numpy()  # b x 1 x W x H
-            pred_mask = np.copy(output)
-            y = y.cpu().numpy()
-            pred_mask[output > threshold] = 1
-            pred_mask[output <= threshold] = 0
-
-            tp += np.sum(pred_mask[y == 1] == 1)
-            fp += np.sum(pred_mask[y == 0] == 1)
-            fn += np.sum(pred_mask[y == 1] == 0)
-
-            mae = np.mean(np.abs(pred_mask-y))
-            batch_mae.append(mae)
-            batch_size.append(x.shape[0])
-
-            if i % 100 == 0:
-                print(
-                    "[%d/%d]\ttp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-                    % (
-                        i,
-                        len(test_loader),
-                        tp,
-                        fp,
-                        fn,
-                        mae
-                    )
-                )
-
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / \
-        (belta_sq * precision + recall)
-    MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
-        np.sum(batch_size)
-
-    return precision, recall, f_measure, MAE
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--store_files", type=str, default='./models/',
@@ -237,6 +117,8 @@ if __name__ == "__main__":
                         type=int, help="batch size")
     parser.add_argument("--num_epochs", default=1,
                         type=int, help="epochs to run")
+    parser.add_argument("--pretrained", default=False, action='store_true')
+    parser.add_argument("--pretrained_model", default='vgg11', type=str, help="vgg11|vgg16")
     parser.add_argument("--residual_level", default=8, type=int, help="Up to which level of residual connection, 8 means going back to w/8")
     parser.add_argument("--positional_encoding", default=False, action="store_true",
                         help="Whether to add positional encoding at encoder")
@@ -254,25 +136,18 @@ if __name__ == "__main__":
         os.makedirs(args.store_files)
 
     # Data
-    train_data, test_data = load_data()
+    train_data, test_data = load_data('DUTS')
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=False)
     
     # Model
     if args.residual_level == 8:
         fcn_model = FCN8s(
-            n_class=n_class, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+            n_class=n_class, pretrained_model=args.pretrained_model, pretrained=args.pretrained, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
     elif args.residual_level == 32:
         fcn_model = FCN32s(
-            n_class=n_class, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
-    #n_class, h, w = 1, 224, 224
-    # input = torch.autograd.Variable(torch.randn(batch_size, 3, h, w))
-    # #input = next(iter(train_data))[0].reshape((1,3,224,224))
-    # print('input.shape: ', input.shape)
-    # output = fcn_model(input)
-    # print('output shape: ', output.shape)
-    # assert output.size() == torch.Size([batch_size, n_class, h, w])
-    # print('Check Pass')
+            n_class=n_class, pretrained_model=args.pretrained_model, pretrained=args.pretrained, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+
 
     # Train Model
     fcn_model = fcn_model.to(device)
@@ -312,6 +187,7 @@ if __name__ == "__main__":
         "%H:%M:%S", time.gmtime(elapsed_time)))
 
     # Evaluate
+    all_results = {}
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=False)
     eval_params = {
@@ -321,24 +197,38 @@ if __name__ == "__main__":
     pr, rc, fm, mae = eval(fcn_model, test_loader, params)
 
     results = (np.mean(losses), pr, rc, fm, mae)
+    all_results['DUTS'] = (pr, rc, fm, mae)
     print("Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
           (pr, rc, fm, mae))
 
+    # Evaluate zero-shot on HKU-IS Data
+    _, HKU_test_data = load_data('HKU')
+    HKU_test_loader = torch.utils.data.DataLoader(
+        HKU_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae = eval(fcn_model, HKU_test_loader, params)
+    all_results['HKU'] = (pr, rc, fm, mae)
+
+    # Evalate zero-shot on 
+
+
+
     # Create model directory
     dir_name = args.store_files + \
-        "residule%d_pos_encoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
-                                                                        args.positional_encoding,
-                                                                        args.pos_inject_layer,
-                                                                        args.pos_embed_type,
-                                                                        start_time)
+        "residule%d_model%s_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
+                                                                                            args.pretrained_model,
+                                                                                            args.pretrained,
+                                                                                            args.positional_encoding,
+                                                                                            args.pos_inject_layer,
+                                                                                            args.pos_embed_type,
+                                                                                            start_time)
     os.mkdir(dir_name)
     print('Saving model to dir: ', dir_name)
-
     model_save_name = 'fcn.pt'
     path = dir_name + "/" + model_save_name
     # Save Model
     if args.save_model == True:
         torch.save(fcn_model.state_dict(), path)
+
 
     # Plot
     plot_and_save(losses, "loss", dir_name,
@@ -353,6 +243,6 @@ if __name__ == "__main__":
                   "validation", freq=num_epoch_per_eval)
 
     # Save model info
-    save_model_info(fcn_model, results, params, elapsed_time, dir_name)
+    save_model_info(fcn_model, results, all_results, params, elapsed_time, dir_name)
 
     # Visualize

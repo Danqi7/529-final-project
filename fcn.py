@@ -17,8 +17,9 @@ import numpy as np
 import argparse
 import PIL
 
-from utils import load_data, plot_and_save, save_model_info
+from utils import plot_and_save, save_model_info
 from positional_embeddings import gaussian_pos_embedding
+from data_utils import load_data
 
 # Set the device to use
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -26,7 +27,6 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 ## Hyperparameters
 image_c = 3
 GAUSSIAN_SIGMA = 90
-
 
 '''
     positional_encoding: bool determines whether to add positional encodings
@@ -37,7 +37,7 @@ GAUSSIAN_SIGMA = 90
 '''
 class FCN8s(nn.Module):
     def __init__(self,
-                 n_class, pretrained=True, pretrained_net=None,
+                 n_class, pretrained=True, pretrained_model='vgg16',
                  positional_encoding=False, pos_embed_type="Random",
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
@@ -46,13 +46,17 @@ class FCN8s(nn.Module):
         self.pos_embed_type = pos_embed_type
 
         # Encoder
-        if pretrained_net is None:
+        if pretrained_model == 'vgg16':
             pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
                                     positional_encoding=positional_encoding, 
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
-        else:
+        elif pretrained_model ==  'vgg11':
+            pretrained_net = VGGNet(pretrained=pretrained, model='vgg11', requires_grad=True,
+                                    positional_encoding=positional_encoding,
+                                    pos_inject_layer=pos_inject_layer,
+                                    show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
 
@@ -128,7 +132,7 @@ class FCN8s(nn.Module):
 '''
 class FCN32s(nn.Module):
     def __init__(self,
-                 n_class, pretrained=True, pretrained_net=None,
+                 n_class, pretrained=True, pretrained_model=None,
                  positional_encoding=False, pos_embed_type="Random",
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
@@ -137,13 +141,17 @@ class FCN32s(nn.Module):
         self.pos_embed_type = pos_embed_type
         
         # Encoder
-        if pretrained_net is None:
+        if pretrained_model == 'vgg16':
             pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
                                     positional_encoding=positional_encoding, 
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
-        else:
+        elif pretrained_model ==  'vgg11':
+            pretrained_net = VGGNet(pretrained=pretrained, model='vgg11', requires_grad=True,
+                                    positional_encoding=positional_encoding,
+                                    pos_inject_layer=pos_inject_layer,
+                                    show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
 
@@ -251,10 +259,16 @@ class VGGNet(VGG):
         #print('model_dict: ', model_dict.keys())
 
         if pretrained:
-            # Load pretrained vgg weights on ImageNet 
-            pretrained_dict = models.vgg16(pretrained=True, progress=True).state_dict()
-            #print('pretrained_dict: ')
-            print(pretrained_dict.keys())
+            if model == 'vgg16':                
+                # Load pretrained vgg weights on ImageNet 
+                pretrained_dict = models.vgg16(pretrained=True, progress=True).state_dict()
+                #print('pretrained_dict: ')
+                print(pretrained_dict.keys())
+            elif model == 'vgg11':
+                pretrained_dict = models.vgg11(
+                    pretrained=True, progress=True).state_dict()
+                #print('pretrained_dict: ')
+                print(pretrained_dict.keys())
 
             # Load pretrained weights but leave the pos_embed weights initialized
             if positional_encoding:
