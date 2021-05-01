@@ -211,7 +211,7 @@ if __name__ == "__main__":
     # Evalate zero-shot on 
 
 
-
+    print(all_results)
     # Create model directory
     dir_name = args.store_files + \
         "residule%d_model%s_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
