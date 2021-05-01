@@ -82,8 +82,8 @@ def eval_sample(model, test_data, params):
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / \
-        (belta_sq * precision + recall)
+    f_measure = (1+belta_sq**2) * precision * recall / \
+        ((belta_sq**2) * precision + recall)
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
 
@@ -145,8 +145,8 @@ def eval(model, test_loader, params):
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
-    f_measure = (1+belta_sq) * precision * recall / \
-        (belta_sq * precision + recall)
+    f_measure = (1+belta_sq**2) * precision * recall / \
+        ((belta_sq**2) * precision + recall)
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
 
