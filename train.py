@@ -108,6 +108,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
                 # Best Model
                 if fm > best_fmeasure:
                     best_model = copy.deepcopy(model)
+                    best_fmeasure = fm
             
             # Clear Cache
             torch.cuda.empty_cache()

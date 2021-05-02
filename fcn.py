@@ -12,6 +12,7 @@ from vgg import VGG
 import matplotlib.pyplot as plt
 
 import os
+import copy
 import time
 import numpy as np
 import argparse
@@ -48,13 +49,15 @@ class FCN8s(nn.Module):
         # Encoder
         if pretrained_model == 'vgg16':
             pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
-                                    positional_encoding=positional_encoding, 
+                                    positional_encoding=positional_encoding,
+                                    pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         elif pretrained_model ==  'vgg11':
             pretrained_net = VGGNet(pretrained=pretrained, model='vgg11', requires_grad=True,
                                     positional_encoding=positional_encoding,
+                                    pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
@@ -147,12 +150,14 @@ class FCN32s(nn.Module):
         if pretrained_model == 'vgg16':
             pretrained_net = VGGNet(pretrained=pretrained, requires_grad=True,
                                     positional_encoding=positional_encoding, 
+                                    pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         elif pretrained_model ==  'vgg11':
             pretrained_net = VGGNet(pretrained=pretrained, model='vgg11', requires_grad=True,
                                     positional_encoding=positional_encoding,
+                                    pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
@@ -203,16 +208,20 @@ class FCN32s(nn.Module):
             elif self.pos_embed_type == 'H':
                 row = horizontal_pos_row(self.image_size) # [1 x 224]
                 pos_embed = torch.tensor(np.repeat(row, self.image_size, axis=0))
+                pos_embed = pos_embed.type(torch.FloatTensor)
             elif self.pos_embed_type == 'V':
                 col = vertical_pos_col(self.image_size) # [224 x 1]
                 pos_embed = torch.tensor(np.repeat(col, self.image_size, axis=1)) # [WxH]
+                pos_embed = pos_embed.type(torch.FloatTensor)
             elif self.pos_embed_type == 'HV':
                 row = horizontal_pos_row(self.image_size) #[1 x 224]
                 h_embed = torch.tensor(np.repeat(row, self.image_size, axis=0)) # [224x224]
                 col = vertical_pos_col(self.image_size)  # [224 x 1]
                 v_embed = torch.tensor(
                     np.repeat(col, self.image_size, axis=1)) #[224 x 224]
-                pos_embed = torch.stack((h_embed, v_embed), dim=0) # [2 x w x h]
+                pos_embed = torch.stack((h_embed, v_embed), dim=0) # [2 x w x h
+                pos_embed = pos_embed.type(torch.FloatTensor)
+                
 
             self.pos_embed = pos_embed
 
@@ -222,13 +231,13 @@ class FCN32s(nn.Module):
         batch_size = x.shape[0]
         image_size = x.shape[2]
         if self.positional_encoding:
-            if self.pos_embed != 'HV':
-                pos_embed = self.pos_embed
+            if self.pos_embed_type != 'HV':
+                pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
                 pos_embed = pos_embed.to(device)
                 x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
             else:
-                pos_embed = self.pos_embed,   # [2xwxh]
+                pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
                 pos_embed = pos_embed.repeat((batch_size, 1, 1, 1)) #[b x 2 x w x h]
                 x = torch.cat((x, pos_embed), dim=1)  # [b x 5 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
@@ -286,10 +295,13 @@ cfg = {
     MVP for intializing encoder to have extra positional channels
 '''
 
-def make_layers(cfg, batch_norm=False, positional_encoding=False) -> nn.Sequential:
+def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type='Gaussian') -> nn.Sequential:
     layers = []
     if positional_encoding:
-        in_channels = 4
+        if pos_embed_type == 'HV':
+            in_channels = 5
+        else:
+            in_channels = 4
     else:
         in_channels = 3
     for v in cfg:
@@ -306,8 +318,8 @@ def make_layers(cfg, batch_norm=False, positional_encoding=False) -> nn.Sequenti
     return nn.Sequential(*layers)
 
 class VGGNet(VGG):
-    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, positional_encoding=False, pos_inject_layer=0, show_params=False, show_params_values=False):
-        super().__init__(make_layers(cfg[model], positional_encoding=positional_encoding))
+    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_layer=0, show_params=False, show_params_values=False):
+        super().__init__(make_layers(cfg[model], positional_encoding=positional_encoding, pos_embed_type=pos_embed_type))
         self.ranges = ranges[model]
         
         model_dict = self.state_dict()
