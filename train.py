@@ -211,10 +211,6 @@ if __name__ == "__main__":
     # Evalate zero-shot on 
 
 
-    for k, v in all_results:
-        (vpr, vrc, vfm, vmae) = v
-        print("%s : Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
-              (k, vpr, vrc, vfm, vmae))
 
     print(all_results)
     # Create model directory
@@ -250,4 +246,11 @@ if __name__ == "__main__":
     # Save model info
     save_model_info(fcn_model, results, all_results, params, elapsed_time, dir_name)
 
+    
+
+    for i, (k, v) in enumerate(all_results.items()):
+        (vpr, vrc, vfm, vmae) = v
+        print("%s : Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
+              (k, vpr, vrc, vfm, vmae))
+    
     # Visualize
