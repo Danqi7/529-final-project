@@ -12,6 +12,7 @@ from vgg import VGG
 import matplotlib.pyplot as plt
 
 import os
+import copy
 import time
 import numpy as np
 import argparse
@@ -52,7 +53,8 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
     maes = []
     fmeasures = []
 
-    #best_mae = 1
+    best_fmeasure = 0
+    best_model = model
     model.train()  # Set model to train mode
     for e in range(num_epochs):
         epoch_loss = 0
@@ -102,12 +104,16 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
                 recalls.append(rc)
                 fmeasures.append(fm)
                 maes.append(mae)
+
+                # Best Model
+                if fm > best_fmeasure:
+                    best_model = copy.deepcopy(model)
             
             # Clear Cache
             torch.cuda.empty_cache()
         print('Epoch %d Average Train Loss: %.4f'%(e, epoch_loss/(i+1)))
 
-    return losses, precisions, recalls, fmeasures, maes
+    return losses, precisions, recalls, fmeasures, maes, best_fmeasure, best_model
 
 
 if __name__ == "__main__":
@@ -195,10 +201,10 @@ if __name__ == "__main__":
     # Train
     print(fcn_model)  # Show model architecture
     validation_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=100, shuffle=False)
+        test_data, batch_size=200, shuffle=False)
     sample_validation = next(iter(validation_loader))
     start_time = time.time()
-    losses, precisions, recalls, fmeasures, maes = train(
+    losses, precisions, recalls, fmeasures, maes, best_fmeasure, best_model = train(
         fcn_model, optim, loss_function, train_loader, sample_validation, params, eval_params)
 
     elapsed_time = time.time() - start_time
@@ -213,7 +219,9 @@ if __name__ == "__main__":
         "belta_sq": 0.3,
         "threshold": 0.5
     }
-    pr, rc, fm, mae = eval(fcn_model, test_loader, params)
+    # Compare best with final model
+    fpr, frc, ffm, fmae = eval(fcn_model, test_loader, params)
+    pr, rc, fm, mae = eval(best_model, test_loader, params)
 
     results = (np.mean(losses), pr, rc, fm, mae)
     all_results['DUTS'] = (pr, rc, fm, mae)
@@ -224,24 +232,22 @@ if __name__ == "__main__":
     _, HKU_test_data = load_data('HKU')
     HKU_test_loader = torch.utils.data.DataLoader(
         HKU_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(fcn_model, HKU_test_loader, params)
+    pr, rc, fm, mae = eval(best_model, HKU_test_loader, params)
     all_results['HKU'] = (pr, rc, fm, mae)
 
     # Evalate zero-shot on ECSSD Data
     _, ECSSD_test_data = load_data('ECSSD')
     ECSSD_test_loader = torch.utils.data.DataLoader(
         ECSSD_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(fcn_model, ECSSD_test_loader, params)
+    pr, rc, fm, mae = eval(best_model, ECSSD_test_loader, params)
     all_results['ECSSD'] = (pr, rc, fm, mae)
 
     # Evaluate on PASCAL-S Data
     _, PSCALS_test_data = load_data('PASCALS')
     PSCALS_test_loader = torch.utils.data.DataLoader(
         PSCALS_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(fcn_model, PSCALS_test_loader, params)
+    pr, rc, fm, mae = eval(best_model, PSCALS_test_loader, params)
     all_results['PASCALS'] = (pr, rc, fm, mae)
-
-
 
 
     print(all_results)
@@ -284,7 +290,7 @@ if __name__ == "__main__":
 
     for i, (k, v) in enumerate(all_results.items()):
         (vpr, vrc, vfm, vmae) = v
-        print("%s : Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
-              (k, vpr, vrc, vfm, vmae))
+        print("%s : F-measure: %.4f, \t MAE: %.4f " %
+              (k, vfm, vmae))
     
     # Visualize

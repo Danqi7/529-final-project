@@ -24,3 +24,14 @@ def gaussian_pos_embedding(size, sigma):
 
     return img
 
+
+def horizontal_pos_row(size):
+    row = np.reshape(np.arange(size) / np.sum(np.arange(size)), (1,size)) # [1 x size]
+
+    return row
+
+def vertical_pos_col(size):
+    col = np.reshape(np.arange(size) / np.sum(np.arange(size)),
+                     (size,1))  # [1 x size]
+
+    return col
