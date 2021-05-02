@@ -59,12 +59,13 @@ def eval_sample(model, test_data, params):
         output = model(x).cpu().numpy()  # b x 1 x W x H
         pred_mask = np.copy(output)
         y = y.cpu().numpy()
-        pred_mask[output > threshold] = 1
-        pred_mask[output <= threshold] = 0
+        pred_mask_round = np.round(pred_mask)
+        # pred_mask[output > threshold] = 1
+        # pred_mask[output <= threshold] = 0
 
-        tp += np.sum(pred_mask[y == 1] == 1)
-        fp += np.sum(pred_mask[y == 0] == 1)
-        fn += np.sum(pred_mask[y == 1] == 0)
+        tp += np.sum(pred_mask_round[y == 1] == 1)
+        fp += np.sum(pred_mask_round[y == 0] == 1)
+        fn += np.sum(pred_mask_round[y == 1] == 0)
 
         mae = np.mean(np.abs(pred_mask-y))
         batch_mae.append(mae)
@@ -119,12 +120,13 @@ def eval(model, test_loader, params):
             output = model(x).cpu().numpy()  # b x 1 x W x H
             pred_mask = np.copy(output)
             y = y.cpu().numpy()
-            pred_mask[output > threshold] = 1
-            pred_mask[output <= threshold] = 0
+            pred_mask_round = np.round(pred_mask)
+            # pred_mask[output > threshold] = 1
+            # pred_mask[output <= threshold] = 0
 
-            tp += np.sum(pred_mask[y == 1] == 1)
-            fp += np.sum(pred_mask[y == 0] == 1)
-            fn += np.sum(pred_mask[y == 1] == 0)
+            tp += np.sum(pred_mask_round[y == 1] == 1)
+            fp += np.sum(pred_mask_round[y == 0] == 1)
+            fn += np.sum(pred_mask_round[y == 1] == 0)
 
             mae = np.mean(np.abs(pred_mask-y))
             batch_mae.append(mae)
