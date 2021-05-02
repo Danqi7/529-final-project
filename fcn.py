@@ -188,20 +188,36 @@ class FCN32s(nn.Module):
         self.bn5 = nn.BatchNorm2d(32)
         self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
 
+        # Positional Encoding
+        if self.positional_encoding:
+            pos_embed = None  # [img_size x img_size]
+            if self.pos_embed_type == 'Gaussian':
+                pos_embed = torch.from_numpy(
+                    gaussian_pos_embedding(image_size, sigma=90))
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'Random':
+                pos_embed = torch.rand(
+                    (image_size, image_size))  # random embed
+            pos_embed = torch.unsqueeze(pos_embed.repeat(
+                (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            pos_embed = pos_embed.to(device)
+            self.pos_embe = pos_embed
+
+
     def forward(self, x):
         # x : [b x 3 x h x w]
         batch_size = x.shape[0]
         image_size = x.shape[2]
         if self.positional_encoding:
-            pos_embed = None  # [img_size x img_size]
-            if self.pos_embed_type == 'Gaussian':
-                pos_embed = torch.from_numpy(gaussian_pos_embedding(image_size, sigma=90))
-                pos_embed = pos_embed.type(torch.FloatTensor)
-            elif self.pos_embed_type == 'Random':
-                pos_embed = torch.rand((image_size, image_size))  # random embed
-            pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
-            pos_embed = pos_embed.to(device)
-            x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
+            # pos_embed = None  # [img_size x img_size]
+            # if self.pos_embed_type == 'Gaussian':
+            #     pos_embed = torch.from_numpy(gaussian_pos_embedding(image_size, sigma=90))
+            #     pos_embed = pos_embed.type(torch.FloatTensor)
+            # elif self.pos_embed_type == 'Random':
+            #     pos_embed = torch.rand((image_size, image_size))  # random embed
+            # pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            # pos_embed = pos_embed.to(device)
+            x = torch.cat((x, self.pos_embed), dim=1)  # [b x 4 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
 
         output = self.pretrained_net(x)
