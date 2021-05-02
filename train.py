@@ -73,16 +73,16 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
 
             # Bookkeeping
             if i % num_iters_per_print == 0 or i == num_iters_per_epoch-1:
-              print(
-                  "[%d/%d][%d/%d]\tLoss: %.4f\t"
-                  % (
-                      e,
-                      num_epochs,
-                      i,
-                      len(train_loader),
-                      loss
-                  )
-              )
+            #   print(
+            #       "[%d/%d][%d/%d]\tLoss: %.4f\t"
+            #       % (
+            #           e,
+            #           num_epochs,
+            #           i,
+            #           len(train_loader),
+            #           loss
+            #       )
+            #   )
               losses.append(loss.item())
 
             # Eval on sample testing on the end batch of epoch
@@ -211,6 +211,7 @@ if __name__ == "__main__":
     # Evalate zero-shot on 
 
 
+
     print(all_results)
     # Create model directory
     dir_name = args.store_files + \
@@ -245,4 +246,11 @@ if __name__ == "__main__":
     # Save model info
     save_model_info(fcn_model, results, all_results, params, elapsed_time, dir_name)
 
+    
+
+    for i, (k, v) in enumerate(all_results.items()):
+        (vpr, vrc, vfm, vmae) = v
+        print("%s : Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
+              (k, vpr, vrc, vfm, vmae))
+    
     # Visualize
