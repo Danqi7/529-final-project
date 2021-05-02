@@ -136,7 +136,9 @@ if __name__ == "__main__":
         os.makedirs(args.store_files)
 
     # Data
-    train_data, test_data = load_data('DUTS')
+    #train_data, test_data = load_data('DUTS')
+    _, train_data = load_data('MSRAB')
+    _, test_data = load_data('DUTS')
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=False)
     
@@ -208,7 +210,20 @@ if __name__ == "__main__":
     pr, rc, fm, mae = eval(fcn_model, HKU_test_loader, params)
     all_results['HKU'] = (pr, rc, fm, mae)
 
-    # Evalate zero-shot on 
+    # Evalate zero-shot on ECSSD Data
+    _, ECSSD_test_data = load_data('ECSSD')
+    ECSSD_test_loader = torch.utils.data.DataLoader(
+        ECSSD_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae = eval(fcn_model, ECSSD_test_loader, params)
+    all_results['ECSSD'] = (pr, rc, fm, mae)
+
+    # Evaluate on PASCAL-S Data
+    _, PSCALS_test_data = load_data('PASCALS')
+    PSCALS_test_loader = torch.utils.data.DataLoader(
+        PSCALS_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae = eval(fcn_model, PSCALS_test_loader, params)
+    all_results['PASCALS'] = (pr, rc, fm, mae)
+
 
 
 
