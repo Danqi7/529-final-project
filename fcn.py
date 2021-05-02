@@ -138,7 +138,7 @@ class FCN32s(nn.Module):
         super().__init__()
         self.n_class = n_class
         self.image_size = 224
-        self.batch_size = 22
+        # self.batch_size = 22
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
         
@@ -200,9 +200,6 @@ class FCN32s(nn.Module):
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
                     (self.image_size, self.image_size))  # random embed
-            pos_embed = torch.unsqueeze(pos_embed.repeat(
-                (self.batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
-            pos_embed = pos_embed.to(device)
             self.pos_embed = pos_embed
 
 
@@ -219,7 +216,10 @@ class FCN32s(nn.Module):
             #     pos_embed = torch.rand((image_size, image_size))  # random embed
             # pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
             # pos_embed = pos_embed.to(device)
-            x = torch.cat((x, self.pos_embed), dim=1)  # [b x 4 x h x w]
+            pos_embed = self.pos_embed
+            pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+            pos_embed = pos_embed.to(device)
+            x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
 
         output = self.pretrained_net(x)
