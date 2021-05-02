@@ -137,6 +137,8 @@ class FCN32s(nn.Module):
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
         self.n_class = n_class
+        self.image_size = 224
+        self.batch_size = 22
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
         
@@ -193,13 +195,13 @@ class FCN32s(nn.Module):
             pos_embed = None  # [img_size x img_size]
             if self.pos_embed_type == 'Gaussian':
                 pos_embed = torch.from_numpy(
-                    gaussian_pos_embedding(image_size, sigma=90))
+                    gaussian_pos_embedding(self.image_size, sigma=90))
                 pos_embed = pos_embed.type(torch.FloatTensor)
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
-                    (image_size, image_size))  # random embed
+                    (self.image_size, self.image_size))  # random embed
             pos_embed = torch.unsqueeze(pos_embed.repeat(
-                (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+                (self.batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
             pos_embed = pos_embed.to(device)
             self.pos_embe = pos_embed
 
