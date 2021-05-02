@@ -332,6 +332,7 @@ class VGGNet(VGG):
                         print('hi')
                         #print('value.shape: ', value.shape)
                         #print('value: ', value)
+                        #TODO: wrong order should be 0:-2 oe -3
                         model_dict[key][:, 1:, :, :] = value # [out_channel x in_channel x 3 x 3]
                     else:
                         model_dict[key] = value

@@ -225,7 +225,9 @@ if __name__ == "__main__":
 
     results = (np.mean(losses), pr, rc, fm, mae)
     all_results['DUTS'] = (pr, rc, fm, mae)
-    print("Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
+    print("Final Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
+          (fpr, frc, ffm, fmae))
+    print("Best Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
           (pr, rc, fm, mae))
 
     # Evaluate zero-shot on HKU-IS Data
