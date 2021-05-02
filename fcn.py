@@ -203,7 +203,7 @@ class FCN32s(nn.Module):
             pos_embed = torch.unsqueeze(pos_embed.repeat(
                 (self.batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
             pos_embed = pos_embed.to(device)
-            self.pos_embe = pos_embed
+            self.pos_embed = pos_embed
 
 
     def forward(self, x):
