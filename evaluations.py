@@ -71,15 +71,6 @@ def eval_sample(model, test_data, params):
         batch_mae.append(mae)
         batch_size.append(x.shape[0])
 
-        print(
-            "tp:%d\t fp:%d\t fn:%d\t mae:%f\t"
-            % (
-                tp,
-                fp,
-                fn,
-                mae
-            )
-        )
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
@@ -87,6 +78,15 @@ def eval_sample(model, test_data, params):
         ((belta_sq**2) * precision + recall)
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
+    print(
+        "precision:%.2f\t recall:%.2f\t f-measure:%.2f\t MAE:%.2f\t"
+        % (
+            precision,
+            recall,
+            f_measure,
+            MAE
+        )
+    )
 
     return precision, recall, f_measure, MAE
 
