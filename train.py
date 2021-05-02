@@ -57,6 +57,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
     for e in range(num_epochs):
         epoch_loss = 0
         for i, data in enumerate(train_loader, 0):
+            model.train()
             x = data[0].to(device)  # b x C x W x H
             y = data[1].to(device)  # b x 1 x W x H
 
@@ -120,6 +121,8 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained", default=False, action='store_true')
     parser.add_argument("--pretrained_model", default='vgg11', type=str, help="vgg11|vgg16")
     parser.add_argument("--residual_level", default=8, type=int, help="Up to which level of residual connection, 8 means going back to w/8")
+    parser.add_argument("--decoder_kernel", default=3, type=int, help="transposed conv kernel size 3 or 4")
+    parser.add_argument("--decoder_bn", default=False, action="store_true", help="Whether to use BatchNorm in decoder")
     parser.add_argument("--positional_encoding", default=False, action="store_true",
                         help="Whether to add positional encoding at encoder")
     parser.add_argument("--pos_inject_layer", default=0, type=int,
@@ -145,10 +148,24 @@ if __name__ == "__main__":
     # Model
     if args.residual_level == 8:
         fcn_model = FCN8s(
-            n_class=n_class, pretrained_model=args.pretrained_model, pretrained=args.pretrained, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+            n_class=n_class,
+            pretrained_model=args.pretrained_model,
+            decoder_kernel=args.decoder_kernel,
+            decoder_bn = args.decoder_bn,
+            pretrained=args.pretrained,
+            positional_encoding=args.positional_encoding,
+            pos_inject_layer=args.pos_inject_layer,
+            pos_embed_type=args.pos_embed_type)
     elif args.residual_level == 32:
         fcn_model = FCN32s(
-            n_class=n_class, pretrained_model=args.pretrained_model, pretrained=args.pretrained, positional_encoding=args.positional_encoding, pos_inject_layer=args.pos_inject_layer, pos_embed_type=args.pos_embed_type)
+            n_class=n_class,
+            pretrained_model=args.pretrained_model,
+            decoder_kernel=args.decoder_kernel,
+            decoder_bn=args.decoder_bn,
+            pretrained=args.pretrained,
+            positional_encoding=args.positional_encoding,
+            pos_inject_layer=args.pos_inject_layer,
+            pos_embed_type=args.pos_embed_type)
 
 
     # Train Model
@@ -230,8 +247,10 @@ if __name__ == "__main__":
     print(all_results)
     # Create model directory
     dir_name = args.store_files + \
-        "residule%d_model%s_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
+        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
                                                                                             args.pretrained_model,
+                                                                                            args.decoder_kernel,
+                                                                                            args.decoder_bn,
                                                                                             args.pretrained,
                                                                                             args.positional_encoding,
                                                                                             args.pos_inject_layer,

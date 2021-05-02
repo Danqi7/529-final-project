@@ -37,7 +37,7 @@ GAUSSIAN_SIGMA = 90
 '''
 class FCN8s(nn.Module):
     def __init__(self,
-                 n_class, pretrained=True, pretrained_model='vgg16',
+                 n_class, pretrained=True, pretrained_model='vgg16', decoder_kernel=3, decoder_bn=False,
                  positional_encoding=False, pos_embed_type="Random",
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
@@ -132,7 +132,7 @@ class FCN8s(nn.Module):
 '''
 class FCN32s(nn.Module):
     def __init__(self,
-                 n_class, pretrained=True, pretrained_model=None,
+                 n_class, pretrained=True, pretrained_model='vgg11', decoder_kernel=3, decoder_bn=False,
                  positional_encoding=False, pos_embed_type="Random",
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
@@ -141,6 +141,7 @@ class FCN32s(nn.Module):
         # self.batch_size = 22
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
+        self.decoder_bn = decoder_bn
         
         # Encoder
         if pretrained_model == 'vgg16':
@@ -158,37 +159,36 @@ class FCN32s(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         # Decoder
-        # self.deconv1 = nn.ConvTranspose2d(
-        #     512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        # self.bn1 = nn.BatchNorm2d(512)
-        # self.deconv2 = nn.ConvTranspose2d(
-        #     512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        # self.bn2 = nn.BatchNorm2d(256)
-        # self.deconv3 = nn.ConvTranspose2d(
-        #     256, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        # self.bn3 = nn.BatchNorm2d(128)
-        # self.deconv4 = nn.ConvTranspose2d(
-        #     128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        # self.bn4 = nn.BatchNorm2d(64)
-        # self.deconv5 = nn.ConvTranspose2d(
-        #     64, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        # self.bn5 = nn.BatchNorm2d(32)
-        # self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
-        self.deconv1 = nn.ConvTranspose2d(
-            512, 512, kernel_size=4, stride=2, padding=1)
-        self.bn1 = nn.BatchNorm2d(512)
-        self.deconv2 = nn.ConvTranspose2d(
-            512, 256, kernel_size=4, stride=2, padding=1)
-        self.bn2 = nn.BatchNorm2d(256)
-        self.deconv3 = nn.ConvTranspose2d(
-            256, 128, kernel_size=4, stride=2, padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.deconv4 = nn.ConvTranspose2d(
-            128, 64, kernel_size=4, stride=2, padding=1)
-        self.bn4 = nn.BatchNorm2d(64)
-        self.deconv5 = nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1)
-        self.bn5 = nn.BatchNorm2d(32)
-        self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+        if decoder_kernel == 3:
+            self.deconv1 = nn.ConvTranspose2d(
+                512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+            self.deconv2 = nn.ConvTranspose2d(
+                512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+            self.deconv3 = nn.ConvTranspose2d(
+                256, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+            self.deconv4 = nn.ConvTranspose2d(
+                128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+            self.deconv5 = nn.ConvTranspose2d(
+                64, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
+            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+        elif decoder_kernel == 4:
+            self.deconv1 = nn.ConvTranspose2d(
+                512, 512, kernel_size=4, stride=2, padding=1)
+            self.deconv2 = nn.ConvTranspose2d(
+                512, 256, kernel_size=4, stride=2, padding=1)
+            self.deconv3 = nn.ConvTranspose2d(
+                256, 128, kernel_size=4, stride=2, padding=1)
+            self.deconv4 = nn.ConvTranspose2d(
+                128, 64, kernel_size=4, stride=2, padding=1)
+            self.deconv5 = nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1)
+            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+        
+        if self.decoder_bn:
+            self.bn1 = nn.BatchNorm2d(512)
+            self.bn2 = nn.BatchNorm2d(256)
+            self.bn3 = nn.BatchNorm2d(128)
+            self.bn4 = nn.BatchNorm2d(64)
+            self.bn5 = nn.BatchNorm2d(32)
 
         # Positional Encoding
         if self.positional_encoding:
@@ -218,19 +218,26 @@ class FCN32s(nn.Module):
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
         #print('forwar encoder x5.shape: ', x5.shape)
 
-        # size=(N, 512, x.H/16, x.W/16)
-        score = self.bn1(self.relu(self.deconv1(x5)))
-        #print('score.shape: ', score.shape)
-        # size=(N, 256, x.H/8, x.W/8)
-        score = self.bn2(self.relu(self.deconv2(score)))
-        #print('score.shape: ', score.shape)
-        # size=(N, 128, x.H/4, x.W/4)
-        score = self.bn3(self.relu(self.deconv3(score)))
-        #print('score.shape: ', score.shape)
-        # size=(N, 64, x.H/2, x.W/2)
-        score = self.bn4(self.relu(self.deconv4(score)))
-        #print('score.shape: ', score.shape)
-        score = self.bn5(self.relu(self.deconv5(score)))  # size=(N, 32, x.H, x.W)
+        if self.decoder_bn:
+            # size=(N, 512, x.H/16, x.W/16)
+            score = self.bn1(self.relu(self.deconv1(x5)))
+            #print('score.shape: ', score.shape)
+            # size=(N, 256, x.H/8, x.W/8)
+            score = self.bn2(self.relu(self.deconv2(score)))
+            #print('score.shape: ', score.shape)
+            # size=(N, 128, x.H/4, x.W/4)
+            score = self.bn3(self.relu(self.deconv3(score)))
+            #print('score.shape: ', score.shape)
+            # size=(N, 64, x.H/2, x.W/2)
+            score = self.bn4(self.relu(self.deconv4(score)))
+            #print('score.shape: ', score.shape)
+            score = self.bn5(self.relu(self.deconv5(score)))  # size=(N, 32, x.H, x.W)
+        else:
+            score = self.relu(self.deconv1(x5))
+            score = self.relu(self.deconv2(score))
+            score = self.relu(self.deconv3(score))
+            score = self.relu(self.deconv4(score))
+            score = self.relu(self.deconv5(score))
         
         # size=(N, n_class, x.H/1, x.W/1)
         score = self.classifier(score)

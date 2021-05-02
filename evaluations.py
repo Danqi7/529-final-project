@@ -79,7 +79,7 @@ def eval_sample(model, test_data, params):
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
     print(
-        "precision:%.2f\t recall:%.2f\t f-measure:%.2f\t MAE:%.2f\t"
+        "precision:%.4f\t recall:%.4f\t f-measure:%.4f\t MAE:%.4f\t"
         % (
             precision,
             recall,
