@@ -311,7 +311,7 @@ if __name__ == "__main__":
 
     for i, (k, v) in enumerate(all_results.items()):
         (vpr, vrc, vfm, vmae) = v
-        print("%s : F-measure: %.4f, \t MAE: %.4f " %
+        print("%s : F-measure: %.4f\nMAE: %.4f" %
               (k, vfm, vmae))
     
     # Visualize

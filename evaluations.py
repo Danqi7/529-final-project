@@ -71,7 +71,7 @@ def eval_sample(model, test_data, params):
         batch_mae.append(mae)
         batch_size.append(x.shape[0])
 
-
+    print('tp, fp, fn: ', tp, fp, fn)
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     f_measure = (1+belta_sq**2) * precision * recall / \
