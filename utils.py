@@ -19,7 +19,7 @@ def plot_and_save(pts, name, save_file, ptype, freq=10):
     plt.savefig(save_file + '/%s_%s.png'%(ptype, name))
 
 
-def save_model_info(model, results, all_results, params, elapsed_time, save_file):
+def save_model_info(model, results, all_results, average_result, params, elapsed_time, save_file):
     losses, precision, recall, fmeasure, mae = results
     learning_rate = params['learning_rate']
     batch_size = params['batch_size']
@@ -28,7 +28,8 @@ def save_model_info(model, results, all_results, params, elapsed_time, save_file
     f = open(save_file + "/model_info.txt", "a")
     content = "model: " + save_file + "/model.ckpt\n" + "\nAverage Loss: " + str(np.mean(losses))
     content += "\nprecision: " + str(precision) + "\nrecall: " + str(recall)
-    content += "All Datasets Eval Results: " + all_results.__str__()
+    content += "\nAll Datasets Eval Results: " + all_results.__str__()
+    content += "\nAverage Result across all test datasets: " + average_result.__str__()
     content += "\nlr: " + str(learning_rate) + "\nbatch size: " + str(batch_size) + "\nnum_epochs: " + str(num_epochs)
     content += "\nTraining Time: " + str(elapsed_time)
     content += "\nArchitecture: " + model.__str__()

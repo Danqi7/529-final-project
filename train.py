@@ -286,8 +286,26 @@ if __name__ == "__main__":
     plot_and_save(maes, "MAE", dir_name,
                   "validation", freq=num_epoch_per_eval)
 
+    # Average F-measure, MAE cross all datasets
+    num_datasets = 0
+    total_pr = 0
+    totoal_re = 0
+    total_fm = 0
+    total_mae = 0
+    for i, (k, v) in enumerate(all_results.items()):
+        (vpr, vrc, vfm, vmae) = v
+        num_datasets += 1
+        total_pr += vpr
+        total_rc += vrc
+        total_fm += vfm
+        total_mae += vmae
+    average_result = (total_pr/num_datasets, total_rc/num_datasets,
+                      total_fm/num_datasets, total_mae/num_datasets)
+    print("Average F-measure: %.4f, \t MAE: %.4f " %
+          (totoal_fm/num_datasets, total_mae/num_datasets))
+
     # Save model info
-    save_model_info(fcn_model, results, all_results, params, elapsed_time, dir_name)
+    save_model_info(fcn_model, results, all_results, average_result, params, elapsed_time, dir_name)
 
     
 
