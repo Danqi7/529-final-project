@@ -16,10 +16,12 @@ import time
 import numpy as np
 import argparse
 import PIL
+import json
 
 # from utils import plot_and_save, save_model_info
 from positional_embeddings import gaussian_pos_embedding
 from fcn import FCN32s, FCN8s
+from data_utils import load_data
 
 # Set the device to use
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -117,6 +119,14 @@ def eval(model, test_loader, params):
     threshold = 0.5
     belta_sq = 0.3
 
+    nthresh = 99
+    tps = np.zeros([nthresh])
+    fps = np.zeros([nthresh])
+    fns = np.zeros([nthresh])
+
+    stepsize = 1. / (nthresh + 1)
+    threshs = np.zeros([nthresh])
+
     model.eval()
     with torch.no_grad():
         for i, data in enumerate(test_loader, 0):
@@ -138,6 +148,14 @@ def eval(model, test_loader, params):
             batch_mae.append(mae)
             batch_size.append(x.shape[0])
 
+            # PR Curve
+            for i in range(nthresh):
+                thresh = (i + 1) * stepsize
+                threshs[i] = thresh
+                tps[i] += np.sum(pred_mask[y == 1] >= thresh)
+                fps[i] += np.sum(pred_mask[y == 0] >= thresh)
+                fns[i] += np.sum(pred_mask[y == 1] < thresh)
+
             # if i % 100 == 0:
             #     print(
             #         "[%d/%d]\ttp:%d\t fp:%d\t fn:%d\t mae:%f\t"
@@ -158,7 +176,84 @@ def eval(model, test_loader, params):
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
 
-    return precision, recall, f_measure, MAE
+    # Precisions, Recalls, Curve
+    precisions = np.array(tps) / (np.array(tps) + np.array(fps))
+    recalls = np.array(tps) / (np.array(tps) + np.array(fns))
+    f_measures = (1+belta_sq) * precisions * recalls / \
+        (belta_sq * precisions + recalls)
+    fmax = np.max(f_measures)
+    fmax_thresh = (np.argmax(f_measures) + 1) * stepsize
+    print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
+    save_file = params['save_file']
+    with open('precisions.txt', 'w') as fh:
+        json.dump(precisions, fh)
+    with open('recalls.txt', 'w') as fh:
+        json.dump(recalls, fh)
+    with open('f_measures.txt', 'w') as fh:
+        json.dump(f_measures, fh)
+
+    return precision, recall, f_measure, MAE, fmax, fmax_thresh
+
+#TODO: precision/recal curve + per image adjustable thresholding + f-measure / threshold curv
+def precision_recall(model, test_loader, params):
+    model.eval()
+    
+    nthresh = 99
+    tps = np.zeros([nthresh])
+    fps = np.zeros([nthresh])
+    fns = np.zeros([nthresh])
+
+    stepsize = 1. / (nthresh + 1)
+    threshs = np.zeros([nthresh])
+    
+    mae_list = []   # List to save mean absolute error of each image
+    belta_sq = 0.3
+    
+    with torch.no_grad():
+        for i, data in enumerate(test_loader, 0):
+            x = data[0].to(device)  # b x C x W x H
+            print('x.shape', x.shape)
+            y = data[1].to(device)  # b x 1 x W x H
+
+            output = model(x).cpu().numpy()  # b x 1 x W x H
+            pred_mask = np.copy(output)
+            y = y.cpu().numpy()
+
+            for i in range(nthresh):
+                thresh = (i + 1) * stepsize
+                threshs[i] = thresh
+                tps[i] += np.sum(pred_mask[y == 1] >= thresh)
+                fps[i] += np.sum(pred_mask[y == 0] >= thresh)
+                fns[i] += np.sum(pred_mask[y == 1] < thresh)
+    
+    # precisions = np.zeros([nthresh])
+    # recallss = np.zeros([nthresh])
+    precisions = np.array(tps) / (np.array(tps) + np.array(fps))
+    recalls = np.array(tps) / (np.array(tps) + np.array(fns))
+
+    f_measures = (1+belta_sq) * precisions * recalls / \
+        (belta_sq * precisions + recalls)
+    
+    fmax = np.max(f_measures)
+    fmax_thresh = (np.argmax(f_measures) + 1) * stepsize
+    print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
+
+    #return precisions, recalls
+    print(threshs)
+    plt.figure()
+    plt.title('Precision vs Recall')
+    plt.plot(precisions, recalls)
+    plt.xlabel('Precision')
+    plt.ylabel('Recall')
+    plt.show()
+
+    plt.figure()
+    plt.title('F-measures')
+    plt.plot(threshs, f_measures)
+    plt.xlabel('threshs')
+    plt.ylabel('F-measure')
+    plt.show()
+            
 
 
 # def visualize_mask(model, img_path):
@@ -200,8 +295,20 @@ def eval(model, test_loader, params):
 
 #      visualize_mask(model, img_path)
 
-
-# if __name__ == "__main__":
+if __name__ == "__main__":
 #     model_path = './models/'
 
 #     load_model_and_visualize(model_path)
+   
+    # Load Model
+    model_path = './models/pos_encoding0_injectlayer0_typeGaussian_encoder1619773570.4/fcn.pt'
+    model = FCN8s(1,False, 'vgg16', 3, True, False)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    print(model)
+    # Test Data
+    batch_size = 16
+    _, PSCALS_test_data = load_data('PASCALS')
+    PSCALS_test_loader = torch.utils.data.DataLoader(
+        PSCALS_test_data, batch_size=batch_size, shuffle=False)
+
+    precision_recall(model, PSCALS_test_loader, {})

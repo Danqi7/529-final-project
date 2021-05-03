@@ -212,64 +212,69 @@ if __name__ == "__main__":
     print('Training Finished in : ', time.strftime(
         "%H:%M:%S", time.gmtime(elapsed_time)))
 
+    # Create model directory
+    dir_name = args.store_files + \
+        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
+                                                                                                         args.pretrained_model,
+                                                                                                         args.decoder_kernel,
+                                                                                                         args.decoder_bn,
+                                                                                                         args.pretrained,
+                                                                                                         args.positional_encoding,
+                                                                                                         args.pos_inject_layer,
+                                                                                                         args.pos_embed_type,
+                                                                                                         start_time)
+    os.mkdir(dir_name)
+    print('Saving model to dir: ', dir_name)
+
     # Evaluate
     all_results = {}
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=False)
     eval_params = {
         "belta_sq": 0.3,
-        "threshold": 0.5
+        "threshold": 0.5,
+        "save_file": dir_name,
     }
     # Compare best with final model
-    fpr, frc, ffm, fmae = eval(fcn_model, test_loader, params)
-    pr, rc, fm, mae = eval(best_model, test_loader, params)
+    fpr, frc, ffm, fmae, ffmax, ffmax_thresh = eval(fcn_model, test_loader, params)
+    pr, rc, fm, mae, fmax, fmax_thresh = eval(best_model, test_loader, params)
 
     results = (np.mean(losses), pr, rc, fm, mae)
-    all_results['DUTS'] = (pr, rc, fm, mae)
-    print("Final Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
-          (fpr, frc, ffm, fmae))
-    print("Best Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f " %
-          (pr, rc, fm, mae))
+    all_results['DUTS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    print("Final Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
+          (fpr, frc, ffm, fmae, ffmax, ffmax_thresh))
+    print("Best Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
+          (pr, rc, fm, mae, fmax, fmax_thresh))
 
     # Evaluate zero-shot on HKU-IS Data
     _, HKU_test_data = load_data('HKU')
     HKU_test_loader = torch.utils.data.DataLoader(
         HKU_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(best_model, HKU_test_loader, params)
-    all_results['HKU'] = (pr, rc, fm, mae)
+    pr, rc, fm, mae, fmax, fmax_thresh = eval(
+        best_model, HKU_test_loader, params)
+    all_results['HKU'] = (pr, rc, fm, mae, fmax, fmax_thresh)
 
     # Evalate zero-shot on ECSSD Data
     _, ECSSD_test_data = load_data('ECSSD')
     ECSSD_test_loader = torch.utils.data.DataLoader(
         ECSSD_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(best_model, ECSSD_test_loader, params)
-    all_results['ECSSD'] = (pr, rc, fm, mae)
+    pr, rc, fm, mae, fmax, fmax_thresh = eval(
+        best_model, ECSSD_test_loader, params)
+    all_results['ECSSD'] = (pr, rc, fm, mae, fmax, fmax_thresh)
 
     # Evaluate on PASCAL-S Data
     _, PSCALS_test_data = load_data('PASCALS')
     PSCALS_test_loader = torch.utils.data.DataLoader(
         PSCALS_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae = eval(best_model, PSCALS_test_loader, params)
-    all_results['PASCALS'] = (pr, rc, fm, mae)
-
+    pr, rc, fm, mae, fmax, fmax_thresh = eval(
+        best_model, PSCALS_test_loader, params)
+    all_results['PASCALS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
 
     print(all_results)
-    # Create model directory
-    dir_name = args.store_files + \
-        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
-                                                                                            args.pretrained_model,
-                                                                                            args.decoder_kernel,
-                                                                                            args.decoder_bn,
-                                                                                            args.pretrained,
-                                                                                            args.positional_encoding,
-                                                                                            args.pos_inject_layer,
-                                                                                            args.pos_embed_type,
-                                                                                            start_time)
-    os.mkdir(dir_name)
-    print('Saving model to dir: ', dir_name)
+
+    # Save Model
     model_save_name = 'fcn.pt'
     path = dir_name + "/" + model_save_name
-    # Save Model
     if args.save_model == True:
         torch.save(fcn_model.state_dict(), path)
 
@@ -310,8 +315,8 @@ if __name__ == "__main__":
     
 
     for i, (k, v) in enumerate(all_results.items()):
-        (vpr, vrc, vfm, vmae) = v
-        print("%s : F-measure: %.4f\nMAE: %.4f" %
-              (k, vfm, vmae))
+        (vpr, vrc, vfm, vmae, vfmax, vfmax_thresh) = v
+        print("%s : F-measure: %.4f, Max F-measure: %.4f \nMAE: %.4f" %
+              (k, vfm, vfmax, vmae))
     
     # Visualize
