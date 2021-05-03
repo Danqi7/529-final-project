@@ -239,6 +239,7 @@ class FCN32s(nn.Module):
             else:
                 pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
                 pos_embed = pos_embed.repeat((batch_size, 1, 1, 1)) #[b x 2 x w x h]
+                pos_embed = pos_embed.to(device)
                 x = torch.cat((x, pos_embed), dim=1)  # [b x 5 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
 
