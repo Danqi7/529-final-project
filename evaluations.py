@@ -31,6 +31,12 @@ image_c = 3
 n_class = 1
 GAUSSIAN_SIGMA = 90
 
+def pil_loader(path):
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(path, 'rb') as f:
+        img = PIL.Image.open(f)
+        return img.convert('RGB')
+
 def eval_sample(model, test_data, params):
     '''
     Evaluate SOD model on test data
@@ -74,8 +80,8 @@ def eval_sample(model, test_data, params):
     print('tp, fp, fn: ', tp, fp, fn)
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
-    f_measure = (1+belta_sq**2) * precision * recall / \
-        ((belta_sq**2) * precision + recall)
+    f_measure = (1+belta_sq) * precision * recall / \
+        (belta_sq * precision + recall)
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
     print(
@@ -147,9 +153,55 @@ def eval(model, test_loader, params):
 
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
-    f_measure = (1+belta_sq**2) * precision * recall / \
-        ((belta_sq**2) * precision + recall)
+    f_measure = (1+belta_sq) * precision * recall / \
+        (belta_sq * precision + recall)
     MAE = np.sum(np.array(batch_mae) * np.array(batch_size)) / \
         np.sum(batch_size)
 
     return precision, recall, f_measure, MAE
+
+
+# def visualize_mask(model, img_path):
+#     '''
+#         Given SoD model, make mask prediction and visualize it along 
+#         the input img
+#     '''
+#     image_transform = transforms.Compose([
+#         transforms.Resize(
+#             (image_size, image_size)),
+#         transforms.ToTensor(),
+#         transforms.Normalize(
+#             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+#     ])
+
+#     img = pil_loader(img_path)
+#     img = image_transform(img)
+
+#     print(img.shape)
+#     pred_mask = model(img)
+
+#     print(pred_mask.shape)
+
+#     # Visualize
+#     unNormalize = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+#                                                            std=[1/0.229, 1/0.224, 1/0.225]),
+#                                       transforms.Normalize(mean=[-0.485, -0.456, -0.406],
+#                                                            std=[1., 1., 1.]),
+#                                       ])
+#     unNormImg = unNormalize(img)
+#     plt.imshow(unNormImg)
+#     plt.show()
+#     plt.imshow(pred_mask)
+#     plt.show()
+
+
+# def load_model_and_visualize(model_path):
+#      img_path = './ECSSD/images/0001.jpg'
+
+#      visualize_mask(model, img_path)
+
+
+# if __name__ == "__main__":
+#     model_path = './models/'
+
+#     load_model_and_visualize(model_path)
