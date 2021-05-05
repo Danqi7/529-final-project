@@ -295,7 +295,9 @@ if __name__ == "__main__":
     path = dir_name + "/" + model_save_name
     if args.save_model == True:
         torch.save(fcn_model.state_dict(), path)
-
+    
+    # Save PR Curves + F-measures vs Tresholds
+    save_PRCurve_fmeasures(plot_results, dir_name)
 
     # Plot
     plot_and_save(losses, "loss", dir_name,
