@@ -278,7 +278,7 @@ if __name__ == "__main__":
 
     # Create model directory
     dir_name = args.store_files + \
-        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
+        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_%s%.1f" % (args.residual_level,
                                                                                                          args.pretrained_model,
                                                                                                          args.decoder_kernel,
                                                                                                          args.decoder_bn,
@@ -286,6 +286,7 @@ if __name__ == "__main__":
                                                                                                          args.positional_encoding,
                                                                                                          args.pos_inject_layer,
                                                                                                          args.pos_embed_type,
+                                                                                                         args.pos_inject_side,
                                                                                                          start_time)
     os.mkdir(dir_name)
     print('Saving model to dir: ', dir_name)
