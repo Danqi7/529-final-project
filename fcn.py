@@ -28,6 +28,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 ## Hyperparameters
 image_c = 3
 GAUSSIAN_SIGMA = 90
+torch.manual_seed(0)
 
 '''
     positional_encoding: bool determines whether to add positional encodings

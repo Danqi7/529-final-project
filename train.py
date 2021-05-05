@@ -33,6 +33,7 @@ image_size = 224
 image_c = 3
 n_class = 1
 GAUSSIAN_SIGMA = 90
+torch.manual_seed(0)
 
 def train(model, optim, loss_function, train_loader, sample_test, params, test_params):
     # Params
