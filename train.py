@@ -335,7 +335,7 @@ if __name__ == "__main__":
     for i, (k, v) in enumerate(all_results.items()):
         (vpr, vrc, vfm, vmae, vfmax, vfmax_thresh) = v
         print("%s : F-measure: %.4f, MAE: %.4f \nMax F-measure: %.4f at tresh %.2f" %
-              (k, vfm, vmae, vfmax,vfmax_thresh)
+              (k, vfm, vmae, vfmax,vfmax_thresh))
     
     # Visualize
     visualize(best_model, dir_name)
