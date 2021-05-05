@@ -19,7 +19,7 @@ import numpy as np
 import argparse
 import PIL
 
-from utils import plot_and_save, save_model_info
+from utils import plot_and_save, save_model_info, save_PRCurve_fmeasures
 from data_utils import load_data
 from positional_embeddings import gaussian_pos_embedding
 from fcn import FCN32s, FCN8s
