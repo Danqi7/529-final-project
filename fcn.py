@@ -196,6 +196,8 @@ class FCN32s(nn.Module):
                 self.classifier = nn.Conv2d(32+1, n_class, kernel_size=1)
             else:
                 self.classifier = nn.Conv2d(32+2, n_class, kernel_size=1)
+        else:
+            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
         
         if self.decoder_bn:
             self.bn1 = nn.BatchNorm2d(512)
@@ -293,8 +295,8 @@ class FCN32s(nn.Module):
                 pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
                 pos_embed = pos_embed.repeat((batch_size, 1, 1, 1)) #[b x 2 x w x h]
                 pos_embed = pos_embed.to(device)
-                x = torch.cat((x, pos_embed), dim=1)  # (N, 32+2, H, W)
-        #print('before classifer score.shape: ', score.shape)
+                score = torch.cat((score, pos_embed), dim=1)  # (N, 32+2, H, W)
+       
         # size=(N, n_class, x.H/1, x.W/1)
         score = self.classifier(score)
         #print('score.shape: ', score.shape)
@@ -326,7 +328,7 @@ cfg = {
 
 def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_side='encoder') -> nn.Sequential:
     layers = []
-    if positional_encoding and pos_embed_type == 'encoder':
+    if positional_encoding and pos_inject_side == 'encoder':
         if pos_embed_type == 'HV':
             in_channels = 5
         else:
