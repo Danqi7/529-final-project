@@ -185,7 +185,7 @@ def eval(model, test_loader, params):
     fmax = np.max(f_measures)
     fmax_thresh = (np.argmax(f_measures) + 1) * stepsize
     print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
-    plot_result = (precisions, recalls, f_measures)
+    plot_result = (list(precisions), list(recalls), list(f_measures))
 
     return precision, recall, f_measure, MAE, fmax, fmax_thresh, plot_result
 
