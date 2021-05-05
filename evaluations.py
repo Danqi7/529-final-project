@@ -286,7 +286,7 @@ def visualize_mask(model, img_path, gt_path, save_file):
                                       ])
     unNormImg = unNormalize(img)
     #print('~~~!!!====: ', unNormImg.shape)
-    unNormImg = torch.squeeze(unNormImg.permute(2, 3, 1, 0), dim=3).numpy()
+    unNormImg = torch.squeeze(unNormImg.permute(2, 3, 1, 0), dim=3).cpu().numpy()
     #print('~~~!!!====: ', unNormImg.shape)
     pred_mask = np.squeeze(np.transpose(pred_mask, (2, 3, 1, 0)), axis=3)
     img_name = "".join(img_path.split('/')[1:])
