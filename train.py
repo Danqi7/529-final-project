@@ -121,7 +121,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--store_files", type=str, default='./models/'+date.today().strftime("%d_%m"),
+    parser.add_argument("--store_files", type=str, default='./models/'+date.today().strftime("%d_%m") + '/',
                         help="Where to store the trained model")
     parser.add_argument("--batch_size", default=22,
                         type=int, help="batch size")
