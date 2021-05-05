@@ -10,6 +10,7 @@ from torchvision import models
 from vgg import VGG
 
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 import os
 import time
@@ -184,15 +185,9 @@ def eval(model, test_loader, params):
     fmax = np.max(f_measures)
     fmax_thresh = (np.argmax(f_measures) + 1) * stepsize
     print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
-    save_file = params['save_file']
-    with open('precisions.txt', 'w') as fh:
-        json.dump(precisions, fh)
-    with open('recalls.txt', 'w') as fh:
-        json.dump(recalls, fh)
-    with open('f_measures.txt', 'w') as fh:
-        json.dump(f_measures, fh)
+    plot_result = (precisions, recalls, f_measures)
 
-    return precision, recall, f_measure, MAE, fmax, fmax_thresh
+    return precision, recall, f_measure, MAE, fmax, fmax_thresh, plot_result
 
 #TODO: precision/recal curve + per image adjustable thresholding + f-measure / threshold curv
 def precision_recall(model, test_loader, params):
@@ -253,62 +248,104 @@ def precision_recall(model, test_loader, params):
     plt.xlabel('threshs')
     plt.ylabel('F-measure')
     plt.show()
-            
+
+def visualize_mask(model, img_path, gt_path, save_file):
+    '''
+        Given SoD model, make mask prediction and visualize it along 
+        the input img
+    '''
+    image_transform = transforms.Compose([
+        transforms.Resize(
+            (image_size, image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    ])
+    mask_transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
+        transforms.Grayscale(num_output_channels=1)])
+
+    img = pil_loader(img_path)
+    gt_mask = PIL.Image.open(gt_path)
+    img = image_transform(img)
+    gt_mask = mask_transform(gt_mask)
+    #print('gt_mask.shape: ', gt_mask.shape)
+    if len(img.shape) < 4:
+        img = np.expand_dims(img, axis=0)
+    img = torch.Tensor(img).to(device)
+    #print(img.shape)
+    pred_mask = model(img).detach().cpu().numpy()
+
+    #print(pred_mask.shape)
+
+    # Visualize
+    unNormalize = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                           std=[1/0.229, 1/0.224, 1/0.225]),
+                                      transforms.Normalize(mean=[-0.485, -0.456, -0.406],
+                                                           std=[1., 1., 1.]),
+                                      ])
+    unNormImg = unNormalize(img)
+    #print('~~~!!!====: ', unNormImg.shape)
+    unNormImg = torch.squeeze(unNormImg.permute(2, 3, 1, 0), dim=3).numpy()
+    #print('~~~!!!====: ', unNormImg.shape)
+    pred_mask = np.squeeze(np.transpose(pred_mask, (2, 3, 1, 0)), axis=3)
+    img_name = "".join(img_path.split('/')[1:])
+    #print('pred_mask.shap: ', pred_mask.shape)
+    #print(save_file + '/'+img_name+'_img')
+    plt.imsave(save_file + '/'+img_name+'_img.jpg', unNormImg)
+    plt.imsave(save_file + '/'+img_name+'_pred.png', np.squeeze(pred_mask,axis=2), cmap=cm.gray)
+    gt_mask.save(save_file + '/'+img_name+'_gt.png')
 
 
-# def visualize_mask(model, img_path):
-#     '''
-#         Given SoD model, make mask prediction and visualize it along 
-#         the input img
-#     '''
-#     image_transform = transforms.Compose([
-#         transforms.Resize(
-#             (image_size, image_size)),
-#         transforms.ToTensor(),
-#         transforms.Normalize(
-#             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-#     ])
+def visualize(model, save_file):
+     img_path = './ECSSD/images/0001.jpg'
+     gt_path = './ECSSD/ground_truth_mask/0001.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-#     img = pil_loader(img_path)
-#     img = image_transform(img)
+     img_path = './salObj/imgs/9.jpg'
+     gt_path = './salObj/masks/9.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-#     print(img.shape)
-#     pred_mask = model(img)
+     img_path = './salObj/imgs/25.jpg'
+     gt_path = './salObj/masks/25.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-#     print(pred_mask.shape)
+     img_path = './salObj/imgs/90.jpg'
+     gt_path = './salObj/masks/90.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-#     # Visualize
-#     unNormalize = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
-#                                                            std=[1/0.229, 1/0.224, 1/0.225]),
-#                                       transforms.Normalize(mean=[-0.485, -0.456, -0.406],
-#                                                            std=[1., 1., 1.]),
-#                                       ])
-#     unNormImg = unNormalize(img)
-#     plt.imshow(unNormImg)
-#     plt.show()
-#     plt.imshow(pred_mask)
-#     plt.show()
+     img_path = './salObj/imgs/118.jpg'
+     gt_path = './salObj/masks/118.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
+     img_path = './salObj/imgs/171.jpg'
+     gt_path = './salObj/masks/171.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-# def load_model_and_visualize(model_path):
-#      img_path = './ECSSD/images/0001.jpg'
+     img_path = './salObj/imgs/170.jpg'
+     gt_path = './salObj/masks/170.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
-#      visualize_mask(model, img_path)
+     img_path = './salObj/imgs/458.jpg'
+     gt_path = './salObj/masks/458.png'
+     visualize_mask(model, img_path, gt_path, save_file)
 
 if __name__ == "__main__":
 #     model_path = './models/'
-
-#     load_model_and_visualize(model_path)
    
     # Load Model
     model_path = './models/pos_encoding0_injectlayer0_typeGaussian_encoder1619773570.4/fcn.pt'
+    save_file = './models/pos_encoding0_injectlayer0_typeGaussian_encoder1619773570.4'
     model = FCN8s(1,False, 'vgg16', 3, True, False)
     model.load_state_dict(torch.load(model_path, map_location=device))
     print(model)
+    
+    visualize(model, save_file)
+    
     # Test Data
-    batch_size = 16
-    _, PSCALS_test_data = load_data('PASCALS')
-    PSCALS_test_loader = torch.utils.data.DataLoader(
-        PSCALS_test_data, batch_size=batch_size, shuffle=False)
+    # batch_size = 16
+    # _, PSCALS_test_data = load_data('PASCALS')
+    # PSCALS_test_loader = torch.utils.data.DataLoader(
+    #     PSCALS_test_data, batch_size=batch_size, shuffle=False)
 
-    precision_recall(model, PSCALS_test_loader, {})
+    # precision_recall(model, PSCALS_test_loader, {})

@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
 import os
+import json
 import numpy as np
 import PIL
 
@@ -17,6 +18,14 @@ def plot_and_save(pts, name, save_file, ptype, freq=10):
     plt.xlabel('ith ' + str(freq) + ' iterations')
     plt.ylabel(name)
     plt.savefig(save_file + '/%s_%s.png'%(ptype, name))
+
+
+def save_PRCurve_fmeasures(plot_results, save_file):
+    '''
+        plot_results: Dict of storing pr, rc, fmeasures for each datasets
+    '''
+    with open(os.path.join(save_file, 'plot_results.txt'), 'w') as fh:
+        json.dump(plot_results, fh)
 
 
 def save_model_info(model, results, all_results, average_result, params, elapsed_time, save_file):

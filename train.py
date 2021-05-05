@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import os
 import copy
 import time
+from datetime import date
 import numpy as np
 import argparse
 import PIL
@@ -22,7 +23,7 @@ from utils import plot_and_save, save_model_info
 from data_utils import load_data
 from positional_embeddings import gaussian_pos_embedding
 from fcn import FCN32s, FCN8s
-from evaluations import eval, eval_sample
+from evaluations import eval, eval_sample, visualize
 
 # Set the device to use
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -119,7 +120,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--store_files", type=str, default='./models/',
+    parser.add_argument("--store_files", type=str, default='./models/'+date.today().strftime("%d_%m"),
                         help="Where to store the trained model")
     parser.add_argument("--batch_size", default=16,
                         type=int, help="batch size")
@@ -212,6 +213,65 @@ if __name__ == "__main__":
     print('Training Finished in : ', time.strftime(
         "%H:%M:%S", time.gmtime(elapsed_time)))
 
+    # Evaluate
+    all_results = {}
+    plot_results = {} # PR Curve + f-measure vs thresholds
+    test_loader = torch.utils.data.DataLoader(
+        test_data, batch_size=batch_size, shuffle=False)
+    eval_params = {
+        "belta_sq": 0.3,
+        "threshold": 0.5,
+    }
+    # Compare best with final model
+    fpr, frc, ffm, fmae, ffmax, ffmax_thresh, _ = eval(fcn_model, test_loader, params)
+    pr, rc, fm, mae, fmax, fmax_thresh, plot_result = eval(best_model, test_loader, params)
+
+    results = (np.mean(losses), pr, rc, fm, mae)
+    all_results['DUTS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    plot_results['DUTS'] = plot_result
+    print("Final Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
+          (fpr, frc, ffm, fmae, ffmax, ffmax_thresh))
+    print("Best Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
+          (pr, rc, fm, mae, fmax, fmax_thresh))
+
+    # Evaluate zero-shot on HKU-IS Data
+    _, HKU_test_data = load_data('HKU')
+    HKU_test_loader = torch.utils.data.DataLoader(
+        HKU_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae, fmax, fmax_thresh, plot_result = eval(
+        best_model, HKU_test_loader, params)
+    all_results['HKU'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    plot_results['HKU'] = plot_result
+
+    # Evalate zero-shot on ECSSD Data
+    _, ECSSD_test_data = load_data('ECSSD')
+    ECSSD_test_loader = torch.utils.data.DataLoader(
+        ECSSD_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae, fmax, fmax_thresh, plot_result = eval(
+        best_model, ECSSD_test_loader, params)
+    all_results['ECSSD'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    plot_results['ECSSD'] = plot_result
+
+    # Evaluate on PASCAL-S Data
+    _, PSCALS_test_data = load_data('PASCALS')
+    PSCALS_test_loader = torch.utils.data.DataLoader(
+        PSCALS_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae, fmax, fmax_thresh, plot_result = eval(
+        best_model, PSCALS_test_loader, params)
+    all_results['PASCALS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    plot_results['PASCALS'] = plot_result
+
+    # Evaluate on DUT-OMRON Data
+    _, OMRON_test_data = load_data('OMRON')
+    OMRON_test_loader = torch.utils.data.DataLoader(
+        OMRON_test_data, batch_size=batch_size, shuffle=False)
+    pr, rc, fm, mae, fmax, fmax_thresh, plot_result = eval(
+        best_model, OMRON_test_loader, params)
+    all_results['OMRON'] = (pr, rc, fm, mae, fmax, fmax_thresh)
+    plot_results['OMRON'] = plot_result
+
+    print(all_results)
+
     # Create model directory
     dir_name = args.store_files + \
         "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_encoder%.1f" % (args.residual_level,
@@ -225,52 +285,6 @@ if __name__ == "__main__":
                                                                                                          start_time)
     os.mkdir(dir_name)
     print('Saving model to dir: ', dir_name)
-
-    # Evaluate
-    all_results = {}
-    test_loader = torch.utils.data.DataLoader(
-        test_data, batch_size=batch_size, shuffle=False)
-    eval_params = {
-        "belta_sq": 0.3,
-        "threshold": 0.5,
-        "save_file": dir_name,
-    }
-    # Compare best with final model
-    fpr, frc, ffm, fmae, ffmax, ffmax_thresh = eval(fcn_model, test_loader, params)
-    pr, rc, fm, mae, fmax, fmax_thresh = eval(best_model, test_loader, params)
-
-    results = (np.mean(losses), pr, rc, fm, mae)
-    all_results['DUTS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
-    print("Final Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
-          (fpr, frc, ffm, fmae, ffmax, ffmax_thresh))
-    print("Best Test Precision: %.4f, \t Recall: %.4f, \t F-measure: %.4f, \t MAE: %.4f, \t Max F-measure: %.4f at thresh %.2f" %
-          (pr, rc, fm, mae, fmax, fmax_thresh))
-
-    # Evaluate zero-shot on HKU-IS Data
-    _, HKU_test_data = load_data('HKU')
-    HKU_test_loader = torch.utils.data.DataLoader(
-        HKU_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae, fmax, fmax_thresh = eval(
-        best_model, HKU_test_loader, params)
-    all_results['HKU'] = (pr, rc, fm, mae, fmax, fmax_thresh)
-
-    # Evalate zero-shot on ECSSD Data
-    _, ECSSD_test_data = load_data('ECSSD')
-    ECSSD_test_loader = torch.utils.data.DataLoader(
-        ECSSD_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae, fmax, fmax_thresh = eval(
-        best_model, ECSSD_test_loader, params)
-    all_results['ECSSD'] = (pr, rc, fm, mae, fmax, fmax_thresh)
-
-    # Evaluate on PASCAL-S Data
-    _, PSCALS_test_data = load_data('PASCALS')
-    PSCALS_test_loader = torch.utils.data.DataLoader(
-        PSCALS_test_data, batch_size=batch_size, shuffle=False)
-    pr, rc, fm, mae, fmax, fmax_thresh = eval(
-        best_model, PSCALS_test_loader, params)
-    all_results['PASCALS'] = (pr, rc, fm, mae, fmax, fmax_thresh)
-
-    print(all_results)
 
     # Save Model
     model_save_name = 'fcn.pt'
@@ -320,3 +334,4 @@ if __name__ == "__main__":
               (k, vfm, vfmax, vmae))
     
     # Visualize
+    visualize(best_model, dir_name)
