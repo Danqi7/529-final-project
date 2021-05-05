@@ -123,20 +123,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--store_files", type=str, default='./models/'+date.today().strftime("%d_%m"),
                         help="Where to store the trained model")
-    parser.add_argument("--batch_size", default=16,
+    parser.add_argument("--batch_size", default=22,
                         type=int, help="batch size")
     parser.add_argument("--num_epochs", default=1,
                         type=int, help="epochs to run")
     parser.add_argument("--pretrained", default=False, action='store_true')
     parser.add_argument("--pretrained_model", default='vgg11', type=str, help="vgg11|vgg16")
-    parser.add_argument("--residual_level", default=8, type=int, help="Up to which level of residual connection, 8 means going back to w/8")
+    parser.add_argument("--residual_level", default=32, type=int, help="Up to which level of residual connection, 8 means going back to w/8")
     parser.add_argument("--decoder_kernel", default=3, type=int, help="transposed conv kernel size 3 or 4")
     parser.add_argument("--decoder_bn", default=False, action="store_true", help="Whether to use BatchNorm in decoder")
     parser.add_argument("--positional_encoding", default=False, action="store_true",
                         help="Whether to add positional encoding at encoder")
     parser.add_argument("--pos_inject_layer", default=0, type=int,
                         help="Which layer at the encoder to inject the positional encoding")
-    parser.add_argument("--pos_embed_type", default="Gaussian", type=str, help="Gaussian|Random|")
+    parser.add_argument("--pos_embed_type", default="Gaussian", type=str, help="Gaussian|Random|HV|H|V|H+V|")
+    parser.add_argument("--pos_inject_side", default="encoder", type=str, help="Where to inject pos encoding, encoder|decoder")
     parser.add_argument("--save_model", default=False, action="store_true", help="Whether to save model checkpoint")
 
     args = parser.parse_args()
@@ -164,6 +165,7 @@ if __name__ == "__main__":
             pretrained=args.pretrained,
             positional_encoding=args.positional_encoding,
             pos_inject_layer=args.pos_inject_layer,
+            pos_inject_side=args.pos_inject_side,
             pos_embed_type=args.pos_embed_type)
     elif args.residual_level == 32:
         fcn_model = FCN32s(
@@ -174,6 +176,7 @@ if __name__ == "__main__":
             pretrained=args.pretrained,
             positional_encoding=args.positional_encoding,
             pos_inject_layer=args.pos_inject_layer,
+            pos_inject_side=args.pos_inject_side,
             pos_embed_type=args.pos_embed_type)
 
 

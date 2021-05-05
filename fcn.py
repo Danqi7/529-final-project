@@ -46,6 +46,7 @@ class FCN8s(nn.Module):
         self.n_class = n_class
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
+        self.pos_inject_side = pos_inject_side
 
         # Encoder
         if pretrained_model == 'vgg16':
@@ -146,6 +147,7 @@ class FCN32s(nn.Module):
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
         self.decoder_bn = decoder_bn
+        self.pos_inject_side = pos_inject_side
         
         # Encoder
         if pretrained_model == 'vgg16':
@@ -153,6 +155,7 @@ class FCN32s(nn.Module):
                                     positional_encoding=positional_encoding, 
                                     pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
+                                    pos_inject_side=pos_inject_side,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         elif pretrained_model ==  'vgg11':
@@ -160,6 +163,7 @@ class FCN32s(nn.Module):
                                     positional_encoding=positional_encoding,
                                     pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
+                                    pos_inject_side=pos_inject_side,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
@@ -176,7 +180,6 @@ class FCN32s(nn.Module):
                 128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
             self.deconv5 = nn.ConvTranspose2d(
                 64, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
         elif decoder_kernel == 4:
             self.deconv1 = nn.ConvTranspose2d(
                 512, 512, kernel_size=4, stride=2, padding=1)
@@ -187,7 +190,12 @@ class FCN32s(nn.Module):
             self.deconv4 = nn.ConvTranspose2d(
                 128, 64, kernel_size=4, stride=2, padding=1)
             self.deconv5 = nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1)
-            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+        
+        if positional_encoding and pos_inject_side == 'decoder':
+            if self.pos_embed_type != 'HV':
+                self.classifier = nn.Conv2d(32+1, n_class, kernel_size=1)
+            else:
+                self.classifier = nn.Conv2d(32+2, n_class, kernel_size=1)
         
         if self.decoder_bn:
             self.bn1 = nn.BatchNorm2d(512)
@@ -220,7 +228,14 @@ class FCN32s(nn.Module):
                 col = vertical_pos_col(self.image_size)  # [224 x 1]
                 v_embed = torch.tensor(
                     np.repeat(col, self.image_size, axis=1)) #[224 x 224]
-                pos_embed = torch.stack((h_embed, v_embed), dim=0) # [2 x w x h
+                pos_embed = torch.stack((h_embed, v_embed), dim=0) # [2 x w x h]
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'H+V':
+                row = horizontal_pos_row(self.image_size)  # [1 x 224]
+                h_embed = torch.tensor(np.repeat(row, self.image_size, axis=0))  # [224x224]
+                col = vertical_pos_col(self.image_size)  # [224 x 1]
+                v_embed = torch.tensor(np.repeat(col, self.image_size, axis=1))  # [224 x 224]
+                pos_embed = h_embed + v_embed
                 pos_embed = pos_embed.type(torch.FloatTensor)
                 
 
@@ -231,7 +246,7 @@ class FCN32s(nn.Module):
         # x : [b x 3 x h x w]
         batch_size = x.shape[0]
         image_size = x.shape[2]
-        if self.positional_encoding:
+        if self.positional_encoding and self.pos_inject_side == 'encoder':
             if self.pos_embed_type != 'HV':
                 pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
@@ -243,10 +258,9 @@ class FCN32s(nn.Module):
                 pos_embed = pos_embed.to(device)
                 x = torch.cat((x, pos_embed), dim=1)  # [b x 5 x h x w]
             #print('after adding pos embed x.shape: ', x.shape)
-
+        #print('x.shape: ', x.shape)
         output = self.pretrained_net(x)
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
-        #print('forwar encoder x5.shape: ', x5.shape)
 
         if self.decoder_bn:
             # size=(N, 512, x.H/16, x.W/16)
@@ -269,8 +283,21 @@ class FCN32s(nn.Module):
             score = self.relu(self.deconv4(score))
             score = self.relu(self.deconv5(score))
         
+        if self.positional_encoding and self.pos_inject_side == 'decoder':
+            if self.pos_embed_type != 'HV':
+                pos_embed = copy.deepcopy(self.pos_embed)
+                pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+                pos_embed = pos_embed.to(device)
+                score = torch.cat((score, pos_embed), dim=1)  # (N, 32+1, H, W)
+            else:
+                pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
+                pos_embed = pos_embed.repeat((batch_size, 1, 1, 1)) #[b x 2 x w x h]
+                pos_embed = pos_embed.to(device)
+                x = torch.cat((x, pos_embed), dim=1)  # (N, 32+2, H, W)
+        #print('before classifer score.shape: ', score.shape)
         # size=(N, n_class, x.H/1, x.W/1)
         score = self.classifier(score)
+        #print('score.shape: ', score.shape)
 
         sigmoid = nn.Sigmoid()
         prob = sigmoid(score)
@@ -297,9 +324,9 @@ cfg = {
     MVP for intializing encoder to have extra positional channels
 '''
 
-def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type='Gaussian') -> nn.Sequential:
+def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_side='encoder') -> nn.Sequential:
     layers = []
-    if positional_encoding:
+    if positional_encoding and pos_embed_type == 'encoder':
         if pos_embed_type == 'HV':
             in_channels = 5
         else:
@@ -320,8 +347,9 @@ def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type
     return nn.Sequential(*layers)
 
 class VGGNet(VGG):
-    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_layer=0, show_params=False, show_params_values=False):
-        super().__init__(make_layers(cfg[model], positional_encoding=positional_encoding, pos_embed_type=pos_embed_type))
+    def __init__(self, pretrained=True, model='vgg16', requires_grad=True, remove_fc=True, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_side='encoder', pos_inject_layer=0, show_params=False, show_params_values=False):
+        super().__init__(make_layers(cfg[model], positional_encoding=positional_encoding,
+                                     pos_embed_type=pos_embed_type, pos_inject_side=pos_inject_side))
         self.ranges = ranges[model]
         
         model_dict = self.state_dict()
@@ -347,7 +375,7 @@ class VGGNet(VGG):
                         #print('value.shape: ', value.shape)
                         #print('value: ', value)
                         #TODO: wrong order should be 0:-2 oe -3
-                        model_dict[key][:, 1:, :, :] = value # [out_channel x in_channel x 3 x 3]
+                        model_dict[key][:, :-1, :, :] = value # [out_channel x in_channel x 3 x 3]
                     else:
                         model_dict[key] = value
             else: # No modification on VGG, directly load
