@@ -114,7 +114,7 @@ def train(model, optim, loss_function, train_loader, sample_test, params, test_p
             
             # Clear Cache
             torch.cuda.empty_cache()
-        print('Epoch %d Average Train Loss: %.4f'%(e, epoch_loss/(i+1)))
+        #print('Epoch %d Average Train Loss: %.4f'%(e, epoch_loss/(i+1)))
 
     return losses, precisions, recalls, fmeasures, maes, best_fmeasure, best_model
 

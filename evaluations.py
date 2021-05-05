@@ -80,7 +80,7 @@ def eval_sample(model, test_data, params):
         batch_mae.append(mae)
         batch_size.append(x.shape[0])
 
-    print('tp, fp, fn: ', tp, fp, fn)
+    #print('tp, fp, fn: ', tp, fp, fn)
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     f_measure = (1+belta_sq) * precision * recall / \
@@ -184,7 +184,7 @@ def eval(model, test_loader, params):
         (belta_sq * precisions + recalls)
     fmax = np.max(f_measures)
     fmax_thresh = (np.argmax(f_measures) + 1) * stepsize
-    print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
+    #print('fmax: ', fmax, '\t at threshold: ', fmax_thresh)
     plot_result = (list(precisions), list(recalls), list(f_measures))
 
     return precision, recall, f_measure, MAE, fmax, fmax_thresh, plot_result
@@ -207,7 +207,7 @@ def precision_recall(model, test_loader, params):
     with torch.no_grad():
         for i, data in enumerate(test_loader, 0):
             x = data[0].to(device)  # b x C x W x H
-            print('x.shape', x.shape)
+            #print('x.shape', x.shape)
             y = data[1].to(device)  # b x 1 x W x H
 
             output = model(x).cpu().numpy()  # b x 1 x W x H
