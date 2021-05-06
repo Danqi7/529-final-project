@@ -39,13 +39,15 @@ torch.manual_seed(0)
 '''
 class FCN8s(nn.Module):
     def __init__(self,
-                 n_class, pretrained=True, pretrained_model='vgg16', decoder_kernel=3, decoder_bn=False,
+                 n_class, pretrained=True, pretrained_model='vgg11', decoder_kernel=3, decoder_bn=False,
                  positional_encoding=False, pos_embed_type="Random",
                  pos_inject_layer=0, pos_inject_side="encoder"):
         super().__init__()
         self.n_class = n_class
+        self.image_size = 224
         self.positional_encoding = positional_encoding
         self.pos_embed_type = pos_embed_type
+        self.decoder_bn = decoder_bn
         self.pos_inject_side = pos_inject_side
 
         # Encoder
@@ -54,6 +56,7 @@ class FCN8s(nn.Module):
                                     positional_encoding=positional_encoding,
                                     pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
+                                    pos_inject_side=pos_inject_side,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         elif pretrained_model ==  'vgg11':
@@ -61,6 +64,7 @@ class FCN8s(nn.Module):
                                     positional_encoding=positional_encoding,
                                     pos_embed_type=pos_embed_type,
                                     pos_inject_layer=pos_inject_layer,
+                                    pos_inject_side=pos_inject_side,
                                     show_params=False, show_params_values=False)
             self.pretrained_net = pretrained_net
         self.relu = nn.ReLU(inplace=True)
@@ -81,26 +85,75 @@ class FCN8s(nn.Module):
         self.deconv5 = nn.ConvTranspose2d(
             64, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
         self.bn5 = nn.BatchNorm2d(32)
-        self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+
+        if positional_encoding and pos_inject_side == 'decoder':
+            if self.pos_embed_type != 'HV':
+                self.classifier = nn.Conv2d(32+1, n_class, kernel_size=1)
+            else:
+                self.classifier = nn.Conv2d(32+2, n_class, kernel_size=1)
+        else:
+            self.classifier = nn.Conv2d(32, n_class, kernel_size=1)
+
+
+        # Positional Encoding
+        if self.positional_encoding:
+            pos_embed = None  # [img_size x img_size]
+            if self.pos_embed_type == 'Gaussian':
+                pos_embed = torch.from_numpy(
+                    gaussian_pos_embedding(self.image_size, sigma=90))
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'Random':
+                pos_embed = torch.rand(
+                    (self.image_size, self.image_size))  # random embed
+            elif self.pos_embed_type == 'H':
+                row = horizontal_pos_row(self.image_size)  # [1 x 224]
+                pos_embed = torch.tensor(
+                    np.repeat(row, self.image_size, axis=0))
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'V':
+                col = vertical_pos_col(self.image_size)  # [224 x 1]
+                pos_embed = torch.tensor(
+                    np.repeat(col, self.image_size, axis=1))  # [WxH]
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'HV':
+                row = horizontal_pos_row(self.image_size)  # [1 x 224]
+                h_embed = torch.tensor(
+                    np.repeat(row, self.image_size, axis=0))  # [224x224]
+                col = vertical_pos_col(self.image_size)  # [224 x 1]
+                v_embed = torch.tensor(
+                    np.repeat(col, self.image_size, axis=1))  # [224 x 224]
+                pos_embed = torch.stack(
+                    (h_embed, v_embed), dim=0)  # [2 x w x h]
+                pos_embed = pos_embed.type(torch.FloatTensor)
+            elif self.pos_embed_type == 'H+V':
+                row = horizontal_pos_row(self.image_size)  # [1 x 224]
+                h_embed = torch.tensor(
+                    np.repeat(row, self.image_size, axis=0))  # [224x224]
+                col = vertical_pos_col(self.image_size)  # [224 x 1]
+                v_embed = torch.tensor(
+                    np.repeat(col, self.image_size, axis=1))  # [224 x 224]
+                pos_embed = h_embed + v_embed
+                pos_embed = pos_embed.type(torch.FloatTensor)
+
+            self.pos_embed = pos_embed
 
     def forward(self, x):
         # x : [b x 3 x h x w]
         batch_size = x.shape[0]
         image_size = x.shape[2]
-        if self.positional_encoding:
-            pos_embed = None  # [img_size x img_size]
-            if self.pos_embed_type == 'Gaussian':
-                pos_embed = torch.from_numpy(
-                    gaussian_pos_embedding(image_size, sigma=90))
-                pos_embed = pos_embed.type(torch.FloatTensor)
-            elif self.pos_embed_type == 'Random':
-                pos_embed = torch.rand(
-                    (image_size, image_size))  # random embed
-            pos_embed = torch.unsqueeze(pos_embed.repeat(
-                (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
-            pos_embed = pos_embed.to(device)
-            x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
-            #print('after adding pos embed x.shape: ', x.shape)
+        if self.positional_encoding and self.pos_inject_side == 'encoder':
+            if self.pos_embed_type != 'HV':
+                pos_embed = copy.deepcopy(self.pos_embed)
+                pos_embed = torch.unsqueeze(pos_embed.repeat(
+                    (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+                pos_embed = pos_embed.to(device)
+                x = torch.cat((x, pos_embed), dim=1)  # [b x 4 x h x w]
+            else:
+                pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
+                pos_embed = pos_embed.repeat(
+                    (batch_size, 1, 1, 1))  # [b x 2 x w x h]
+                pos_embed = pos_embed.to(device)
+                x = torch.cat((x, pos_embed), dim=1)  # [b x 5 x h x w]
 
         output = self.pretrained_net(x)
         x5 = output['x5']  # size=(N, 512, x.H/32, x.W/32)
@@ -122,6 +175,22 @@ class FCN8s(nn.Module):
         score = self.bn4(self.relu(self.deconv4(score)))
         score = self.bn5(self.relu(self.deconv5(score))
                          )  # size=(N, 32, x.H, x.W)
+        
+        if self.positional_encoding and self.pos_inject_side == 'decoder':
+            if self.pos_embed_type != 'HV':
+                pos_embed = copy.deepcopy(self.pos_embed)
+                pos_embed = torch.unsqueeze(pos_embed.repeat(
+                    (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
+                pos_embed = pos_embed.to(device)
+                score = torch.cat((score, pos_embed), dim=1)  # (N, 32+1, H, W)
+            else:
+                pos_embed = copy.deepcopy(self.pos_embed)   # [2xwxh]
+                pos_embed = pos_embed.repeat(
+                    (batch_size, 1, 1, 1))  # [b x 2 x w x h]
+                pos_embed = pos_embed.to(device)
+                score = torch.cat((score, pos_embed), dim=1)  # (N, 32+2, H, W)
+
+
         # size=(N, n_class, x.H/1, x.W/1)
         score = self.classifier(score)
 
