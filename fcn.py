@@ -87,7 +87,7 @@ class FCN8s(nn.Module):
         self.bn5 = nn.BatchNorm2d(32)
 
         if positional_encoding and pos_inject_side == 'decoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV', 'Random2'):
                 self.classifier = nn.Conv2d(32+1, n_class, kernel_size=1)
             else:
                 self.classifier = nn.Conv2d(32+2, n_class, kernel_size=1)
@@ -105,6 +105,11 @@ class FCN8s(nn.Module):
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
                     (self.image_size, self.image_size))  # random embed
+            elif self.pos_embed_type == 'Random2':
+                pos_embed = torch.rand(
+                    (self.image_size, self.image_size))  # random embed
+                pos_embed = torch.stack(
+                    (pos_embed, pos_embed), dim=0)  # [2 x w x h]
             elif self.pos_embed_type == 'H':
                 row = horizontal_pos_row(self.image_size)  # [1 x 224]
                 pos_embed = torch.tensor(
@@ -142,7 +147,7 @@ class FCN8s(nn.Module):
         batch_size = x.shape[0]
         image_size = x.shape[2]
         if self.positional_encoding and self.pos_inject_side == 'encoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV', 'Random2'):
                 pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat(
                     (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
@@ -177,7 +182,7 @@ class FCN8s(nn.Module):
                          )  # size=(N, 32, x.H, x.W)
         
         if self.positional_encoding and self.pos_inject_side == 'decoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV', 'Random2'):
                 pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat(
                     (batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
@@ -261,7 +266,7 @@ class FCN32s(nn.Module):
             self.deconv5 = nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1)
         
         if positional_encoding and pos_inject_side == 'decoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV', 'Random2'):
                 self.classifier = nn.Conv2d(32+1, n_class, kernel_size=1)
             else:
                 self.classifier = nn.Conv2d(32+2, n_class, kernel_size=1)
@@ -285,6 +290,11 @@ class FCN32s(nn.Module):
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
                     (self.image_size, self.image_size))  # random embed
+            elif self.pos_embed_type == 'Random2':
+                pos_embed = torch.rand(
+                    (self.image_size, self.image_size))  # random embed
+                pos_embed = torch.stack(
+                    (pos_embed, pos_embed), dim=0)  # [2 x w x h]
             elif self.pos_embed_type == 'H':
                 row = horizontal_pos_row(self.image_size) # [1 x 224]
                 pos_embed = torch.tensor(np.repeat(row, self.image_size, axis=0))
@@ -318,7 +328,7 @@ class FCN32s(nn.Module):
         batch_size = x.shape[0]
         image_size = x.shape[2]
         if self.positional_encoding and self.pos_inject_side == 'encoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV', 'Random2'):
                 pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
                 pos_embed = pos_embed.to(device)
@@ -355,7 +365,7 @@ class FCN32s(nn.Module):
             score = self.relu(self.deconv5(score))
         
         if self.positional_encoding and self.pos_inject_side == 'decoder':
-            if self.pos_embed_type != 'HV':
+            if self.pos_embed_type not in ('HV','Random2'):
                 pos_embed = copy.deepcopy(self.pos_embed)
                 pos_embed = torch.unsqueeze(pos_embed.repeat((batch_size, 1, 1)), dim=1)  # [b x 1 x h x w]
                 pos_embed = pos_embed.to(device)
@@ -398,7 +408,7 @@ cfg = {
 def make_layers(cfg, batch_norm=False, positional_encoding=False, pos_embed_type='Gaussian', pos_inject_side='encoder') -> nn.Sequential:
     layers = []
     if positional_encoding and pos_inject_side == 'encoder':
-        if pos_embed_type == 'HV':
+        if pos_embed_type in ('HV', 'Random2'):
             in_channels = 5
         else:
             in_channels = 4
@@ -446,7 +456,10 @@ class VGGNet(VGG):
                         #print('value.shape: ', value.shape)
                         #print('value: ', value)
                         #TODO: wrong order should be 0:-2 oe -3
-                        model_dict[key][:, :-1, :, :] = value # [out_channel x in_channel x 3 x 3]
+                        if pos_embed_type not in ('HV', 'Random2'):
+                            model_dict[key][:, :-1, :, :] = value # [out_channel x in_channel x 3 x 3]
+                        else:
+                            model_dict[key][:, :-2, :, :] = value
                     else:
                         model_dict[key] = value
             else: # No modification on VGG, directly load
