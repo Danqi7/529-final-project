@@ -276,20 +276,37 @@ if __name__ == "__main__":
 
     print(all_results)
 
+    # Average F-measure, MAE cross all datasets
+    num_datasets = 0
+    total_pr = 0
+    total_rc = 0
+    total_fm = 0
+    total_mae = 0
+    for i, (k, v) in enumerate(all_results.items()):
+        (vpr, vrc, vfm, vmae, fmax, fmax_thresh) = v
+        num_datasets += 1
+        total_pr += vpr
+        total_rc += vrc
+        total_fm += vfm
+        total_mae += vmae
+    average_result = (total_pr/num_datasets, total_rc/num_datasets,
+                      total_fm/num_datasets, total_mae/num_datasets)
+    print("Average F-measure: %.4f, \t MAE: %.4f " %
+          (total_fm/num_datasets, total_mae/num_datasets))
+
     # Create model directory
     dir_name = args.store_files + \
-        "residule%d_model%skernel%d_bn%d_pretrained%d_posencoding%d_injectlayer%d_type%s_%s%.1f" % (args.residual_level,
-                                                                                                         args.pretrained_model,
-                                                                                                         args.decoder_kernel,
-                                                                                                         args.decoder_bn,
-                                                                                                         args.pretrained,
-                                                                                                         args.positional_encoding,
-                                                                                                         args.pos_inject_layer,
-                                                                                                         args.pos_embed_type,
-                                                                                                         args.pos_inject_side,
-                                                                                                         start_time)
+        "residule%d__pretrained%d_posencoding%d__type%s_%s%.1f_fm%.2f_MAE%.2f" % (args.residual_level,
+                                                                                  args.pretrained,
+                                                                                  args.positional_encoding,
+                                                                                  args.pos_embed_type,
+                                                                                  args.pos_inject_side,
+                                                                                  start_time,
+                                                                                  total_fm/num_datasets, total_mae/num_datasets)
     os.mkdir(dir_name)
     print('Saving model to dir: ', dir_name)
+
+
 
     # Save Model
     model_save_name = 'fcn.pt'
@@ -312,23 +329,6 @@ if __name__ == "__main__":
     plot_and_save(maes, "MAE", dir_name,
                   "validation", freq=num_epoch_per_eval)
 
-    # Average F-measure, MAE cross all datasets
-    num_datasets = 0
-    total_pr = 0
-    total_rc = 0
-    total_fm = 0
-    total_mae = 0
-    for i, (k, v) in enumerate(all_results.items()):
-        (vpr, vrc, vfm, vmae, fmax, fmax_thresh) = v
-        num_datasets += 1
-        total_pr += vpr
-        total_rc += vrc
-        total_fm += vfm
-        total_mae += vmae
-    average_result = (total_pr/num_datasets, total_rc/num_datasets,
-                      total_fm/num_datasets, total_mae/num_datasets)
-    print("Average F-measure: %.4f, \t MAE: %.4f " %
-          (total_fm/num_datasets, total_mae/num_datasets))
 
     # Save model info
     save_model_info(fcn_model, results, all_results, average_result, params, elapsed_time, dir_name)

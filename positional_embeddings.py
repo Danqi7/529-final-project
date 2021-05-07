@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 def gaussian_kernel_1d(sigma, size):
     width = math.floor(size / 2)
@@ -35,3 +36,31 @@ def vertical_pos_col(size):
                      (size,1))  # [1 x size]
 
     return col
+
+def horizontal_pos_encoding(size):
+  row = np.reshape(np.arange(size) / np.sum(np.arange(size)), (1, size))
+  img = np.repeat(row, size, axis=0)
+
+  return img
+
+def vertical_pos_encoding(size):
+  col = np.reshape(np.arange(size) / np.sum(np.arange(size)), (size, 1))
+  img = np.repeat(col, size, axis=1)
+
+  return img
+
+
+if __name__ == '__main__':
+    x2 = gaussian_kernel_2d(110, 224)
+    #print(x2.shape, x2)
+   # plt.figure()
+    plt.imsave('./Gaussian.jpg', x2)
+
+    hori = horizontal_pos_encoding(224)
+    plt.imsave('./Horizontal.jpg', hori)
+
+    v = vertical_pos_encoding(224)
+    plt.imsave('./Vertical.jpg', v)
+
+    sum_HV = hori + v
+    plt.imsave('./SumHV.jpg',sum_HV)
