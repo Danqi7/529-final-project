@@ -100,7 +100,7 @@ class FCN8s(nn.Module):
             pos_embed = None  # [img_size x img_size]
             if self.pos_embed_type == 'Gaussian':
                 pos_embed = torch.from_numpy(
-                    gaussian_pos_embedding(self.image_size, sigma=90))
+                    gaussian_pos_embedding(self.image_size, sigma=110))
                 pos_embed = pos_embed.type(torch.FloatTensor)
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
@@ -285,7 +285,7 @@ class FCN32s(nn.Module):
             pos_embed = None  # [img_size x img_size]
             if self.pos_embed_type == 'Gaussian':
                 pos_embed = torch.from_numpy(
-                    gaussian_pos_embedding(self.image_size, sigma=90))
+                    gaussian_pos_embedding(self.image_size, sigma=110))
                 pos_embed = pos_embed.type(torch.FloatTensor)
             elif self.pos_embed_type == 'Random':
                 pos_embed = torch.rand(
