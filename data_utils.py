@@ -462,86 +462,86 @@ if __name__ == "__main__":
                                       ])
 
     image_size = 224
-    # DUTS_data = DUTSDataset(root_dir="./data/DUTS-TE",
-    #                       type="test",
-    #                       image_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.ToTensor(),
-    #                           transforms.Normalize(
-    #                               (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #                       ]),
-    #                       mask_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.Grayscale(
-    #                               num_output_channels=1),
-    #                           transforms.ToTensor(),
-    #                       ]))
-    # HKU_data = HKUDataset(root_dir="./HKU-IS/",
-    #                       type="test",
-    #                       image_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.ToTensor(),
-    #                           transforms.Normalize(
-    #                               (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #                       ]),
-    #                       mask_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.Grayscale(
-    #                               num_output_channels=1),
-    #                           transforms.ToTensor(),
-    #                       ]))
-    # ECSSD_data = ECSSDDataset(root_dir="./ECSSD/",
-    #                       type="test",
-    #                       image_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.ToTensor(),
-    #                         #   transforms.Normalize(
-    #                         #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #                       ]),
-    #                       mask_transform=transforms.Compose([
-    #                           transforms.Resize(
-    #                               (image_size, image_size)),
-    #                           transforms.Grayscale(
-    #                               num_output_channels=1),
-    #                           transforms.ToTensor(),
-    #                       ]))
-    # PSACLS_data = PASCALSDataset(root_dir="./salObj/",
-    #                           type="test",
-    #                           image_transform=transforms.Compose([
-    #                               transforms.Resize(
-    #                                   (image_size, image_size)),
-    #                                transforms.ToTensor(),
-    #                                #   transforms.Normalize(
-    #                               #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #                           ]),
-    #                           mask_transform=transforms.Compose([
-    #                               transforms.Resize(
-    #                                   (image_size, image_size)),
-    #                               transforms.Grayscale(
-    #                                   num_output_channels=1),
-    #                               transforms.ToTensor(),
-    #                           ]))
-    # MRSA_data = MSRABDataset(root_dir="./MSRA-B/",
-    #                              type="test",
-    #                              image_transform=transforms.Compose([
-    #                                  transforms.Resize(
-    #                                      (image_size, image_size)),
-    #                                   transforms.ToTensor(),
-    #                                   #   transforms.Normalize(
-    #                                  #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    #                              ]),
-    #                              mask_transform=transforms.Compose([
-    #                                  transforms.Resize(
-    #                                      (image_size, image_size)),
-    #                                  transforms.Grayscale(
-    #                                      num_output_channels=1),
-    #                                  transforms.ToTensor(),
-    #                              ]))
+    DUTS_data = DUTSDataset(root_dir="./data/DUTS-TE",
+                          type="test",
+                          image_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.ToTensor(),
+                              transforms.Normalize(
+                                  (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                          ]),
+                          mask_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.Grayscale(
+                                  num_output_channels=1),
+                              transforms.ToTensor(),
+                          ]))
+    HKU_data = HKUDataset(root_dir="./HKU-IS/",
+                          type="test",
+                          image_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.ToTensor(),
+                              transforms.Normalize(
+                                  (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                          ]),
+                          mask_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.Grayscale(
+                                  num_output_channels=1),
+                              transforms.ToTensor(),
+                          ]))
+    ECSSD_data = ECSSDDataset(root_dir="./ECSSD/",
+                          type="test",
+                          image_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.ToTensor(),
+                            #   transforms.Normalize(
+                            #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                          ]),
+                          mask_transform=transforms.Compose([
+                              transforms.Resize(
+                                  (image_size, image_size)),
+                              transforms.Grayscale(
+                                  num_output_channels=1),
+                              transforms.ToTensor(),
+                          ]))
+    PSACLS_data = PASCALSDataset(root_dir="./salObj/",
+                              type="test",
+                              image_transform=transforms.Compose([
+                                  transforms.Resize(
+                                      (image_size, image_size)),
+                                   transforms.ToTensor(),
+                                   #   transforms.Normalize(
+                                  #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                              ]),
+                              mask_transform=transforms.Compose([
+                                  transforms.Resize(
+                                      (image_size, image_size)),
+                                  transforms.Grayscale(
+                                      num_output_channels=1),
+                                  transforms.ToTensor(),
+                              ]))
+    MRSA_data = MSRABDataset(root_dir="./MSRA-B/",
+                                 type="test",
+                                 image_transform=transforms.Compose([
+                                     transforms.Resize(
+                                         (image_size, image_size)),
+                                      transforms.ToTensor(),
+                                      #   transforms.Normalize(
+                                     #       (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                                 ]),
+                                 mask_transform=transforms.Compose([
+                                     transforms.Resize(
+                                         (image_size, image_size)),
+                                     transforms.Grayscale(
+                                         num_output_channels=1),
+                                     transforms.ToTensor(),
+                                 ]))
     OMRON_data = OMRONDataset(root_dir="./DUT-OMRON/",
                              type="test",
                              image_transform=transforms.Compose([
@@ -559,11 +559,11 @@ if __name__ == "__main__":
                                  transforms.ToTensor(),
                              ]))
     
-    #print(HKU_data)
-    #print(DUTS_data)
-    #print(ECSSD_data)
-    #print(PSACLS_data)
-    #print(MRSA_data)
+    print(HKU_data)
+    print(DUTS_data)
+    print(ECSSD_data)
+    print(PSACLS_data)
+    print(MRSA_data)
     print(OMRON_data)
 
     # data_loader = torch.utils.data.DataLoader(

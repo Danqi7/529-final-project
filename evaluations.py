@@ -330,6 +330,18 @@ def visualize(model, save_file):
      gt_path = './salObj/masks/458.png'
      visualize_mask(model, img_path, gt_path, save_file)
 
+     img_path = './MSRA-B/imgs/0_1_1728.jpg'
+     gt_path = './MSRA-B/masks/0_1_1728.png'
+     visualize_mask(model, img_path, gt_path, save_file)
+
+     img_path = './MSRA-B/imgs/0_4_4828.jpg'
+     gt_path = './MSRA-B/masks/0_4_4828.png'
+     visualize_mask(model, img_path, gt_path, save_file)
+
+     img_path = './HKU-IS/imgs/0030.png'
+     gt_path = './HKU-IS/gt/0030.png'
+     visualize_mask(model, img_path, gt_path, save_file)
+
 if __name__ == "__main__":
 #     model_path = './models/'
    

@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
+import torchvision.utils as vutils
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import models
@@ -186,7 +187,7 @@ if __name__ == "__main__":
     num_iters_per_print = 100
     num_epochs = args.num_epochs
     num_epoch_per_eval = 1
-    save_file = ''
+    save_file = 'test_model/'
     learning_rate = 1e-4
     params = {
         "batch_size": args.batch_size,
@@ -342,3 +343,22 @@ if __name__ == "__main__":
     
     # Visualize
     visualize(best_model, dir_name)
+
+    # Visualize weight 64 x 1 x 4 x 3
+    # [out_channel x in_channel x 3 x 3]
+    #print('save_file: ', save_file)
+    #print(fcn_model.state_dict().keys())
+
+    weights = fcn_model.state_dict()['pretrained_net.features.0.weight'] # 64 x 4 x 3 x 3
+    encoding_weights = weights[:, -1, :, :] # 64 x 1 x 3 x 3
+    # upsample
+    scale_factor = 24
+    m = nn.Upsample(scale_factor=scale_factor, mode='bilinear')
+    
+    encoding_weights = m(encoding_weights.view(
+        encoding_weights.shape[0], 1, 3, 3))
+    encoding_weights = encoding_weights.view(
+        encoding_weights.shape[0], 1, 3*scale_factor, 3*scale_factor)
+    weight_images = vutils.make_grid(encoding_weights, padding=2, normalize=True)
+    vutils.save_image(weight_images, dir_name +
+                      "/input_weights.png")
